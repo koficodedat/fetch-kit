@@ -9,10 +9,7 @@ import { withRetry } from '@utils/retry';
 /**
  * Core fetch wrapper function using the active adapter with enhanced error handling
  */
-export async function fetch<T>(
-  url: string,
-  options: RequestOptions = {}
-): Promise<T> {
+export async function fetch<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const { timeout, responseType, retry, ...restOptions } = options;
 
   // Get the active adapter
@@ -81,7 +78,7 @@ export async function fetch<T>(
         isTimeout: category === 'timeout',
         isCancelled: category === 'cancel',
         isNetworkError: category === 'network',
-        data: error.data || error.response?.data
+        data: error.data || error.response?.data,
       });
 
       throw fetchError;

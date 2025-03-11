@@ -26,7 +26,7 @@ export interface CacheEntry<T> {
 export function createCacheEntry<T>(
   data: T,
   staleTime = 0,
-  cacheTime = 5 * 60 * 1000
+  cacheTime = 5 * 60 * 1000,
 ): CacheEntry<T> {
   const now = Date.now();
 
@@ -35,7 +35,7 @@ export function createCacheEntry<T>(
     createdAt: now,
     staleAt: now + staleTime,
     expiresAt: now + cacheTime,
-    isRevalidating: false
+    isRevalidating: false,
   };
 }
 

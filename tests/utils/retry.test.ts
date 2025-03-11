@@ -1,16 +1,16 @@
 // tests/utils/retry.test.ts
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   calculateRetryDelay,
   defaultShouldRetry,
   withRetry,
   DEFAULT_RETRY_CONFIG,
-} from "@utils/retry";
-import { ErrorCategory } from "@fk-types/error";
-import { createError } from "@utils/error";
+} from '@utils/retry';
+import { ErrorCategory } from '@fk-types/error';
+import { createError } from '@utils/error';
 
-describe("Retry utilities", () => {
+describe('Retry utilities', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -20,28 +20,28 @@ describe("Retry utilities", () => {
     vi.useRealTimers();
   });
 
-  describe("calculateRetryDelay", () => {
-    it("should calculate correct delay for fixed backoff", () => {
-      const config = { count: 3, delay: 1000, backoff: "fixed" };
+  describe('calculateRetryDelay', () => {
+    it('should calculate correct delay for fixed backoff', () => {
+      const config = { count: 3, delay: 1000, backoff: 'fixed' };
 
       expect(calculateRetryDelay(config, 1)).toBeCloseTo(1000, -2); // Allow ~1% jitter
       expect(calculateRetryDelay(config, 2)).toBeCloseTo(1000, -2);
       expect(calculateRetryDelay(config, 3)).toBeCloseTo(1000, -2);
     });
 
-    it("should calculate correct delay for linear backoff", () => {
-      const config = { count: 3, delay: 1000, backoff: "linear" };
+    it('should calculate correct delay for linear backoff', () => {
+      const config = { count: 3, delay: 1000, backoff: 'linear' };
 
       expect(calculateRetryDelay(config, 1)).toBeCloseTo(1000, -2);
       expect(calculateRetryDelay(config, 2)).toBeCloseTo(2000, -2);
       expect(calculateRetryDelay(config, 3)).toBeCloseTo(3000, -2);
     });
 
-    it("should calculate correct delay for exponential backoff", () => {
+    it('should calculate correct delay for exponential backoff', () => {
       const config = {
         count: 3,
         delay: 1000,
-        backoff: "exponential",
+        backoff: 'exponential',
         factor: 2,
       };
 
@@ -50,11 +50,11 @@ describe("Retry utilities", () => {
       expect(calculateRetryDelay(config, 3)).toBeCloseTo(4000, -2);
     });
 
-    it("should respect maxDelay", () => {
+    it('should respect maxDelay', () => {
       const config = {
         count: 5,
         delay: 1000,
-        backoff: "exponential",
+        backoff: 'exponential',
         factor: 3,
         maxDelay: 5000,
       };
@@ -65,8 +65,8 @@ describe("Retry utilities", () => {
       expect(calculateRetryDelay(config, 4)).toBeCloseTo(5000, -2); // Still capped
     });
 
-    it("should add jitter to the delay", () => {
-      const config = { count: 3, delay: 1000, backoff: "fixed" };
+    it('should add jitter to the delay', () => {
+      const config = { count: 3, delay: 1000, backoff: 'fixed' };
       const delay1 = calculateRetryDelay(config, 1);
       const delay2 = calculateRetryDelay(config, 1);
 
@@ -81,9 +81,9 @@ describe("Retry utilities", () => {
     });
   });
 
-  describe("defaultShouldRetry", () => {
-    it("should retry server errors", () => {
-      const error = createError("Server error", {
+  describe('defaultShouldRetry', () => {
+    it('should retry server errors', () => {
+      const error = createError('Server error', {
         category: ErrorCategory.Server,
         status: 500,
       });
@@ -91,8 +91,8 @@ describe("Retry utilities", () => {
       expect(defaultShouldRetry(error, 1)).toBe(true);
     });
 
-    it("should retry timeout errors", () => {
-      const error = createError("Timeout error", {
+    it('should retry timeout errors', () => {
+      const error = createError('Timeout error', {
         category: ErrorCategory.Timeout,
         isTimeout: true,
       });
@@ -100,8 +100,8 @@ describe("Retry utilities", () => {
       expect(defaultShouldRetry(error, 1)).toBe(true);
     });
 
-    it("should retry network errors", () => {
-      const error = createError("Network error", {
+    it('should retry network errors', () => {
+      const error = createError('Network error', {
         category: ErrorCategory.Network,
         isNetworkError: true,
       });
@@ -109,8 +109,8 @@ describe("Retry utilities", () => {
       expect(defaultShouldRetry(error, 1)).toBe(true);
     });
 
-    it("should retry 429 errors", () => {
-      const error = createError("Too many requests", {
+    it('should retry 429 errors', () => {
+      const error = createError('Too many requests', {
         category: ErrorCategory.Client,
         status: 429,
       });
@@ -118,8 +118,8 @@ describe("Retry utilities", () => {
       expect(defaultShouldRetry(error, 1)).toBe(true);
     });
 
-    it("should not retry other client errors", () => {
-      const error = createError("Not found", {
+    it('should not retry other client errors', () => {
+      const error = createError('Not found', {
         category: ErrorCategory.Client,
         status: 404,
       });
@@ -127,8 +127,8 @@ describe("Retry utilities", () => {
       expect(defaultShouldRetry(error, 1)).toBe(false);
     });
 
-    it("should not retry cancelled requests", () => {
-      const error = createError("Cancelled", {
+    it('should not retry cancelled requests', () => {
+      const error = createError('Cancelled', {
         category: ErrorCategory.Cancel,
         isCancelled: true,
       });
@@ -136,8 +136,8 @@ describe("Retry utilities", () => {
       expect(defaultShouldRetry(error, 1)).toBe(false);
     });
 
-    it("should not retry if max attempts reached", () => {
-      const error = createError("Server error", {
+    it('should not retry if max attempts reached', () => {
+      const error = createError('Server error', {
         category: ErrorCategory.Server,
         status: 500,
       });
@@ -146,41 +146,35 @@ describe("Retry utilities", () => {
     });
   });
 
-  describe("withRetry", () => {
-    it("should return result if successful on first try", async () => {
-      const requestFn = vi.fn().mockResolvedValue("success");
+  describe('withRetry', () => {
+    it('should return result if successful on first try', async () => {
+      const requestFn = vi.fn().mockResolvedValue('success');
 
       const result = await withRetry(requestFn);
 
-      expect(result).toBe("success");
+      expect(result).toBe('success');
       expect(requestFn).toHaveBeenCalledTimes(1);
     });
 
-    it("should retry on failure until success", async () => {
+    it('should retry on failure until success', async () => {
       // Fail twice, succeed on third attempt
       const requestFn = vi
         .fn()
-        .mockRejectedValueOnce(
-          createError("Server error", { category: ErrorCategory.Server })
-        )
-        .mockRejectedValueOnce(
-          createError("Server error", { category: ErrorCategory.Server })
-        )
-        .mockResolvedValueOnce("success");
+        .mockRejectedValueOnce(createError('Server error', { category: ErrorCategory.Server }))
+        .mockRejectedValueOnce(createError('Server error', { category: ErrorCategory.Server }))
+        .mockResolvedValueOnce('success');
 
       const result = await withRetry(requestFn);
 
-      expect(result).toBe("success");
+      expect(result).toBe('success');
       expect(requestFn).toHaveBeenCalledTimes(3);
     });
 
-    it("should respect max retry count", async () => {
+    it('should respect max retry count', async () => {
       // Always fail
       const requestFn = vi
         .fn()
-        .mockRejectedValue(
-          createError("Server error", { category: ErrorCategory.Server })
-        );
+        .mockRejectedValue(createError('Server error', { category: ErrorCategory.Server }));
 
       try {
         await withRetry(requestFn, { count: 2 });
@@ -191,15 +185,15 @@ describe("Retry utilities", () => {
       }
     });
 
-    it("should respect custom shouldRetry function", async () => {
+    it('should respect custom shouldRetry function', async () => {
       // Custom function that only retries on status 500
-      const shouldRetry = vi.fn((error) => error.status === 500);
+      const shouldRetry = vi.fn(error => error.status === 500);
 
       const requestFn = vi
         .fn()
-        .mockRejectedValueOnce(createError("Server error", { status: 500 }))
-        .mockRejectedValueOnce(createError("Bad request", { status: 400 })) // Should not retry after this
-        .mockResolvedValueOnce("success");
+        .mockRejectedValueOnce(createError('Server error', { status: 500 }))
+        .mockRejectedValueOnce(createError('Bad request', { status: 400 })) // Should not retry after this
+        .mockResolvedValueOnce('success');
 
       try {
         await withRetry(requestFn, { shouldRetry });
@@ -212,17 +206,15 @@ describe("Retry utilities", () => {
       }
     });
 
-    it("should wait appropriate delay between retries", async () => {
+    it('should wait appropriate delay between retries', async () => {
       const requestFn = vi
         .fn()
-        .mockRejectedValueOnce(
-          createError("Server error", { category: ErrorCategory.Server })
-        )
-        .mockResolvedValueOnce("success");
+        .mockRejectedValueOnce(createError('Server error', { category: ErrorCategory.Server }))
+        .mockResolvedValueOnce('success');
 
       const retryPromise = withRetry(requestFn, {
         delay: 2000,
-        backoff: "fixed",
+        backoff: 'fixed',
       });
 
       // First call happens immediately
@@ -240,12 +232,12 @@ describe("Retry utilities", () => {
       expect(requestFn).toHaveBeenCalledTimes(2);
     });
 
-    it("should track retry count in error object", async () => {
+    it('should track retry count in error object', async () => {
       let lastError: any;
 
       // Always fail
       const requestFn = vi.fn().mockImplementation(() => {
-        throw createError("Server error", { category: ErrorCategory.Server });
+        throw createError('Server error', { category: ErrorCategory.Server });
       });
 
       try {

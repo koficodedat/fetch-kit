@@ -1,7 +1,7 @@
 // src/types/core.ts
 
-import { Adapter } from "./adapter";
-import { RetryConfig } from "./error";
+import { Adapter } from './adapter';
+import { RetryConfig } from './error';
 
 /**
  * Configuration options for creating a FetchKit instance
@@ -40,7 +40,7 @@ export interface RequestOptions {
   /**
    * HTTP method for the request
    */
-  method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS";
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
 
   /**
    * Headers to include with the request
@@ -70,7 +70,7 @@ export interface RequestOptions {
   /**
    * Expected response type
    */
-  responseType?: "json" | "text" | "blob" | "arrayBuffer" | "formData";
+  responseType?: 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData';
 
   /**
    * Whether to include credentials in cross-origin requests

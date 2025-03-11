@@ -9,14 +9,14 @@ export default defineConfig({
       '@utils': resolve(__dirname, './src/utils'),
       '@adapters': resolve(__dirname, './src/adapters'),
       '@cache': resolve(__dirname, './src/cache'),
-      '@types': resolve(__dirname, './src/types'),
+      '@fk-types': resolve(__dirname, './src/types'),
     },
   },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
       name: 'FetchKit',
-      fileName: (format) => `fetchkit.${format === 'es' ? 'mjs' : 'js'}`,
+      fileName: format => `fetchkit.${format === 'es' ? 'mjs' : 'js'}`,
       formats: ['es', 'umd'],
     },
     rollupOptions: {
@@ -29,14 +29,5 @@ export default defineConfig({
     target: 'es2020',
     sourcemap: true,
     minify: 'esbuild',
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'tests/'],
-    },
   },
 });

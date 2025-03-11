@@ -1,18 +1,18 @@
 // src/core/fetch-kit.ts
 
-import { fetch } from "@core/fetch";
-import { adapterRegistry } from "@adapters/adapter-registry";
-import { CacheManager } from "@cache/cache-manager";
-import { generateCacheKey } from "@cache/cache-key";
-import type { Adapter } from "@fk-types/adapter";
-import type { CacheOptions } from "@fk-types/cache";
-import type { RequestOptions } from "@fk-types/core";
+import { fetch } from '@core/fetch';
+import { adapterRegistry } from '@adapters/adapter-registry';
+import { CacheManager } from '@cache/cache-manager';
+import { generateCacheKey } from '@cache/cache-key';
+import type { Adapter } from '@fk-types/adapter';
+import type { CacheOptions } from '@fk-types/cache';
+import type { RequestOptions } from '@fk-types/core';
 import type {
   ExtendedFetchKitConfig,
   ExtendedRequestOptions,
   CacheMethods,
-} from "@fk-types/core-extension";
-import type { RetryConfig } from "@fk-types/error";
+} from '@fk-types/core-extension';
+import type { RetryConfig } from '@fk-types/error';
 
 /**
  * Core FetchKit interface from original implementation
@@ -46,7 +46,7 @@ export type FetchKit = BaseFetchKit & CacheMethods;
  */
 export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
   const {
-    baseUrl = "",
+    baseUrl = '',
     defaultHeaders = {},
     timeout,
     retry,
@@ -79,13 +79,13 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     if (!baseUrl) return url;
 
     // If URL is absolute, return it as-is
-    if (url.startsWith("http://") || url.startsWith("https://")) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
 
     // Ensure baseUrl ends with / and url doesn't start with / when combining
-    const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-    const normalizedPath = url.startsWith("/") ? url.substring(1) : url;
+    const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    const normalizedPath = url.startsWith('/') ? url.substring(1) : url;
 
     return `${normalizedBase}${normalizedPath}`;
   };
@@ -94,7 +94,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
    * Process retry options from both global config and request options
    */
   const processRetryOptions = (
-    requestRetry?: boolean | Partial<RetryConfig>
+    requestRetry?: boolean | Partial<RetryConfig>,
   ): Partial<RetryConfig> | undefined => {
     // If retry is explicitly disabled for this request
     if (requestRetry === false) {
@@ -120,7 +120,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
    * Process cache options from both global config and request options
    */
   const processCacheOptions = (
-    requestCacheOptions?: boolean | CacheOptions
+    requestCacheOptions?: boolean | CacheOptions,
   ): CacheOptions | undefined => {
     // If cache is explicitly disabled for this request
     if (requestCacheOptions === false) {
@@ -145,10 +145,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
   /**
    * Main fetch method with caching support
    */
-  const fetchMethod = async <T>(
-    url: string,
-    options: ExtendedRequestOptions = {}
-  ): Promise<T> => {
+  const fetchMethod = async <T>(url: string, options: ExtendedRequestOptions = {}): Promise<T> => {
     const fullUrl = normalizeUrl(url);
     const headers = { ...defaultHeaders, ...options.headers };
     const requestTimeout = options.timeout ?? timeout;
@@ -156,7 +153,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     const cacheOptions = processCacheOptions(options.cacheOptions);
 
     // Handle caching for GET requests
-    if ((options.method === "GET" || !options.method) && cacheOptions) {
+    if ((options.method === 'GET' || !options.method) && cacheOptions) {
       const cacheKey = getCacheKey(fullUrl, { ...options, headers });
 
       return cacheManager.swr<T>(
@@ -168,7 +165,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
             timeout: requestTimeout,
             retry: retryOptions,
           }),
-        cacheOptions
+        cacheOptions,
       );
     }
 
@@ -184,24 +181,18 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
   /**
    * Execute the actual fetch request (without caching)
    */
-  const executeRequest = <T>(
-    url: string,
-    options: RequestOptions = {}
-  ): Promise<T> => {
+  const executeRequest = <T>(url: string, options: RequestOptions = {}): Promise<T> => {
     return fetch<T>(url, options);
   };
 
   /**
    * Get cache key for a request
    */
-  const getCacheKey = (
-    url: string,
-    options?: ExtendedRequestOptions
-  ): string => {
+  const getCacheKey = (url: string, options?: ExtendedRequestOptions): string => {
     // Use custom cache key if provided
     if (
       options?.cacheOptions &&
-      typeof options.cacheOptions === "object" &&
+      typeof options.cacheOptions === 'object' &&
       options.cacheOptions.cacheKey
     ) {
       return options.cacheOptions.cacheKey;
@@ -224,54 +215,36 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
 
   // Build the FetchKit instance
   const fetchKit: FetchKit = {
-    fetch: fetchMethod as <T>(
-      url: string,
-      options?: RequestOptions
-    ) => Promise<T>,
+    fetch: fetchMethod as <T>(url: string, options?: RequestOptions) => Promise<T>,
 
     get: <T>(url: string, options: ExtendedRequestOptions = {}): Promise<T> => {
-      return fetchMethod<T>(url, { ...options, method: "GET" });
+      return fetchMethod<T>(url, { ...options, method: 'GET' });
     },
 
-    post: <T>(
-      url: string,
-      data?: any,
-      options: ExtendedRequestOptions = {}
-    ): Promise<T> => {
+    post: <T>(url: string, data?: any, options: ExtendedRequestOptions = {}): Promise<T> => {
       return fetchMethod<T>(url, {
         ...options,
-        method: "POST",
+        method: 'POST',
         body: data,
       });
     },
 
-    put: <T>(
-      url: string,
-      data?: any,
-      options: ExtendedRequestOptions = {}
-    ): Promise<T> => {
+    put: <T>(url: string, data?: any, options: ExtendedRequestOptions = {}): Promise<T> => {
       return fetchMethod<T>(url, {
         ...options,
-        method: "PUT",
+        method: 'PUT',
         body: data,
       });
     },
 
-    delete: <T>(
-      url: string,
-      options: ExtendedRequestOptions = {}
-    ): Promise<T> => {
-      return fetchMethod<T>(url, { ...options, method: "DELETE" });
+    delete: <T>(url: string, options: ExtendedRequestOptions = {}): Promise<T> => {
+      return fetchMethod<T>(url, { ...options, method: 'DELETE' });
     },
 
-    patch: <T>(
-      url: string,
-      data?: any,
-      options: ExtendedRequestOptions = {}
-    ): Promise<T> => {
+    patch: <T>(url: string, data?: any, options: ExtendedRequestOptions = {}): Promise<T> => {
       return fetchMethod<T>(url, {
         ...options,
-        method: "PATCH",
+        method: 'PATCH',
         body: data,
       });
     },

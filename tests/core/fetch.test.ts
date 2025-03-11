@@ -28,13 +28,13 @@ describe('fetch wrapper', () => {
     });
 
     const result = await fetch('https://example.com/api');
-    
+
     expect(mockFetch).toHaveBeenCalledWith('https://example.com/api', {
       method: 'GET',
       headers: undefined,
       signal: expect.any(AbortSignal),
     });
-    
+
     expect(result).toEqual({ data: 'test' });
   });
 
@@ -57,18 +57,18 @@ describe('fetch wrapper', () => {
       expect(error.status).toBe(404);
     }
   });
-  
+
   it('should handle timeouts correctly', async () => {
     vi.useFakeTimers();
-    
+
     // Mock never-resolving fetch
     mockFetch.mockImplementationOnce(() => new Promise(() => {}));
 
     const fetchPromise = fetch('https://example.com/api', { timeout: 1000 });
-    
+
     // Fast-forward time
     vi.advanceTimersByTime(1100);
-    
+
     try {
       await fetchPromise;
       // Should not reach here
@@ -77,7 +77,7 @@ describe('fetch wrapper', () => {
       expect(error.message).toBe('Request timeout');
       expect(error.isTimeout).toBe(true);
     }
-    
+
     vi.useRealTimers();
   });
 
@@ -91,20 +91,20 @@ describe('fetch wrapper', () => {
       },
       json: () => Promise.resolve({ data: 'test' }),
     };
-    
+
     mockFetch.mockImplementationOnce(() => new Promise(() => {}));
 
     // Create abort controller
     const controller = new AbortController();
-    
+
     // Start fetch
-    const fetchPromise = fetch('https://example.com/api', { 
-      signal: controller.signal 
+    const fetchPromise = fetch('https://example.com/api', {
+      signal: controller.signal,
     });
-    
+
     // Abort the request
     controller.abort();
-    
+
     try {
       await fetchPromise;
       // Should not reach here
@@ -124,18 +124,18 @@ describe('fetch wrapper', () => {
       json: () => Promise.resolve({ data: 'test' }),
     });
 
-    await fetch('https://example.com/api', { 
+    await fetch('https://example.com/api', {
       params: {
         id: 123,
         filter: ['active', 'pending'],
-        nested: { key: 'value' }
-      }
+        nested: { key: 'value' },
+      },
     });
-    
+
     // Get the URL that was passed to fetch
     const calledUrl = mockFetch.mock.calls[0][0];
     const url = new URL(calledUrl);
-    
+
     // Verify params were serialized correctly
     expect(url.searchParams.get('id')).toBe('123');
     expect(url.searchParams.getAll('filter')).toEqual(['active', 'pending']);
@@ -145,7 +145,7 @@ describe('fetch wrapper', () => {
   it('should support different response types', async () => {
     const textResponse = 'plain text response';
     const blobContent = new Blob(['test blob'], { type: 'text/plain' });
-    
+
     // Mock for text response
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -157,11 +157,11 @@ describe('fetch wrapper', () => {
       json: () => Promise.reject(new Error('Invalid JSON')),
     });
 
-    const textResult = await fetch('https://example.com/api', { 
-      responseType: 'text' 
+    const textResult = await fetch('https://example.com/api', {
+      responseType: 'text',
     });
     expect(textResult).toBe(textResponse);
-    
+
     // Mock for blob response
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -171,9 +171,9 @@ describe('fetch wrapper', () => {
       },
       blob: () => Promise.resolve(blobContent),
     });
-    
-    const blobResult = await fetch('https://example.com/api', { 
-      responseType: 'blob' 
+
+    const blobResult = await fetch('https://example.com/api', {
+      responseType: 'blob',
     });
     expect(blobResult).toBe(blobContent);
   });

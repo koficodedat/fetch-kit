@@ -70,16 +70,8 @@ export class CacheManager {
   /**
    * Set data in cache
    */
-  set<T>(
-    cacheKey: string,
-    data: T,
-    options?: CacheOptions
-  ): void {
-    const entry = createCacheEntry<T>(
-      data,
-      options?.staleTime,
-      options?.cacheTime
-    );
+  set<T>(cacheKey: string, data: T, options?: CacheOptions): void {
+    const entry = createCacheEntry<T>(data, options?.staleTime, options?.cacheTime);
 
     this.cache.set(cacheKey, entry);
   }
@@ -131,11 +123,7 @@ export class CacheManager {
    * 2. If there's cached data that's stale, return it and trigger revalidation
    * 3. If there's no cached data, execute fetchFn and cache the result
    */
-  async swr<T>(
-    cacheKey: string,
-    fetchFn: () => Promise<T>,
-    options?: CacheOptions
-  ): Promise<T> {
+  async swr<T>(cacheKey: string, fetchFn: () => Promise<T>, options?: CacheOptions): Promise<T> {
     const cacheEntry = this.getEntry<T>(cacheKey);
 
     // 1. No cached data - fetch, cache, and return
@@ -164,7 +152,7 @@ export class CacheManager {
   private async revalidateData<T>(
     cacheKey: string,
     fetchFn: () => Promise<T>,
-    options?: CacheOptions
+    options?: CacheOptions,
   ): Promise<void> {
     // Don't start another revalidation if one is already in progress
     if (this.revalidationMap.has(cacheKey)) {

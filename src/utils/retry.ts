@@ -10,7 +10,7 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   delay: 1000,
   backoff: 'exponential',
   factor: 2,
-  maxDelay: 30000
+  maxDelay: 30000,
 };
 
 /**
@@ -84,7 +84,7 @@ export function calculateRetryDelay(config: RetryConfig, attempt: number): numbe
 
   // Add jitter to prevent all clients retrying simultaneously
   const jitter = 0.2; // 20% jitter
-  const randomFactor = 1 - jitter + (Math.random() * jitter * 2);
+  const randomFactor = 1 - jitter + Math.random() * jitter * 2;
   nextDelay = Math.floor(nextDelay * randomFactor);
 
   // Ensure delay doesn't exceed maximum
@@ -96,12 +96,12 @@ export function calculateRetryDelay(config: RetryConfig, attempt: number): numbe
  */
 export async function withRetry<T>(
   requestFn: () => Promise<T>,
-  config: Partial<RetryConfig> = {}
+  config: Partial<RetryConfig> = {},
 ): Promise<T> {
   // Merge with default config
   const retryConfig: RetryConfig = {
     ...DEFAULT_RETRY_CONFIG,
-    ...config
+    ...config,
   };
 
   // Set default shouldRetry if not provided

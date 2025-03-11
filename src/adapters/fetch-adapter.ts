@@ -21,7 +21,7 @@ export const fetchAdapter: Adapter = {
       method,
       headers,
       signal,
-      ...restOptions
+      ...restOptions,
     };
 
     // Set body for non-GET requests
@@ -51,20 +51,24 @@ export const fetchAdapter: Adapter = {
       method,
       headers,
       signal,
-      ...restOptions
+      ...restOptions,
     };
 
     // Process body for JSON data
     if (body !== undefined && method !== 'GET' && method !== 'HEAD') {
-      if (typeof body === 'object' && !(body instanceof FormData) &&
-          !(body instanceof Blob) && !(body instanceof ArrayBuffer)) {
+      if (
+        typeof body === 'object' &&
+        !(body instanceof FormData) &&
+        !(body instanceof Blob) &&
+        !(body instanceof ArrayBuffer)
+      ) {
         request.body = JSON.stringify(body);
 
         // Add content-type if not set
         if (headers && !Object.keys(headers).some(h => h.toLowerCase() === 'content-type')) {
           request.headers = {
             ...headers,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           };
         }
       } else {
@@ -108,7 +112,7 @@ export const fetchAdapter: Adapter = {
       status: response.status,
       statusText: response.statusText,
       headers,
-      originalResponse: response
+      originalResponse: response,
     };
-  }
+  },
 };

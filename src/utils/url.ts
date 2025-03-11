@@ -30,7 +30,7 @@ export function buildUrl(url: string, params: Record<string, any>): string {
 function appendParamsToUrl(
   searchParams: URLSearchParams,
   prefix: string,
-  params: Record<string, any>
+  params: Record<string, any>,
 ): void {
   for (const [key, value] of Object.entries(params)) {
     const paramKey = prefix ? `${prefix}[${key}]` : key;
@@ -39,7 +39,7 @@ function appendParamsToUrl(
       continue;
     } else if (Array.isArray(value)) {
       // Handle array parameters
-      value.forEach((item) => {
+      value.forEach(item => {
         if (item !== null && item !== undefined) {
           searchParams.append(paramKey, serializeParam(item));
         }

@@ -1,14 +1,10 @@
 // tests/cache/cache-manager.test.ts
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { CacheManager } from "@cache/cache-manager";
-import {
-  createCacheEntry,
-  isEntryStale,
-  isEntryExpired,
-} from "@cache/cache-entry";
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { CacheManager } from '@cache/cache-manager';
+import { createCacheEntry, isEntryStale, isEntryExpired } from '@cache/cache-entry';
 
-describe("Cache Manager", () => {
+describe('Cache Manager', () => {
   // Mock Date.now for predictable testing
   const originalDateNow = Date.now;
   let mockNow = 1609459200000; // 2021-01-01
@@ -32,9 +28,9 @@ describe("Cache Manager", () => {
     Date.now = originalDateNow;
   });
 
-  describe("Cache Entry Functions", () => {
-    it("creates entry with default values", () => {
-      const data = { id: 1, name: "Test" };
+  describe('Cache Entry Functions', () => {
+    it('creates entry with default values', () => {
+      const data = { id: 1, name: 'Test' };
       const entry = createCacheEntry(data);
 
       expect(entry.data).toEqual(data);
@@ -44,8 +40,8 @@ describe("Cache Manager", () => {
       expect(entry.isRevalidating).toBe(false);
     });
 
-    it("creates entry with custom stale and cache times", () => {
-      const data = { id: 1, name: "Test" };
+    it('creates entry with custom stale and cache times', () => {
+      const data = { id: 1, name: 'Test' };
       const staleTime = 10000;
       const cacheTime = 60000;
 
@@ -55,8 +51,8 @@ describe("Cache Manager", () => {
       expect(entry.expiresAt).toEqual(mockNow + cacheTime);
     });
 
-    it("detects stale entries", () => {
-      const entry = createCacheEntry("data", 10000);
+    it('detects stale entries', () => {
+      const entry = createCacheEntry('data', 10000);
 
       expect(isEntryStale(entry)).toBe(false);
 
@@ -65,8 +61,8 @@ describe("Cache Manager", () => {
       expect(isEntryStale(entry)).toBe(true);
     });
 
-    it("detects expired entries", () => {
-      const entry = createCacheEntry("data", 0, 10000);
+    it('detects expired entries', () => {
+      const entry = createCacheEntry('data', 0, 10000);
 
       expect(isEntryExpired(entry)).toBe(false);
 
@@ -76,16 +72,16 @@ describe("Cache Manager", () => {
     });
   });
 
-  describe("SWR Functionality", () => {
-    it("implements SWR pattern with fresh data", async () => {
-      const key = "test-key";
+  describe('SWR Functionality', () => {
+    it('implements SWR pattern with fresh data', async () => {
+      const key = 'test-key';
 
       // First request - fetches and caches
       const result1 = await cacheManager.swr(key, mockFetch, {
         staleTime: 10000,
       });
 
-      expect(result1).toBe("data-1");
+      expect(result1).toBe('data-1');
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
       // Second request - uses cache
@@ -93,19 +89,19 @@ describe("Cache Manager", () => {
         staleTime: 10000,
       });
 
-      expect(result2).toBe("data-1");
+      expect(result2).toBe('data-1');
       expect(mockFetch).toHaveBeenCalledTimes(1); // No additional fetch
     });
 
-    it("implements SWR pattern with stale data", async () => {
-      const key = "test-key";
+    it('implements SWR pattern with stale data', async () => {
+      const key = 'test-key';
 
       // First request - fetches and caches
       const result1 = await cacheManager.swr(key, mockFetch, {
         staleTime: 5000,
       });
 
-      expect(result1).toBe("data-1");
+      expect(result1).toBe('data-1');
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
       // Advance time to make data stale
@@ -116,10 +112,10 @@ describe("Cache Manager", () => {
         staleTime: 5000,
       });
 
-      expect(result2).toBe("data-1"); // Still returns stale data immediately
+      expect(result2).toBe('data-1'); // Still returns stale data immediately
 
       // Wait for revalidation
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(mockFetch).toHaveBeenCalledTimes(2); // Additional fetch for revalidation
 
@@ -128,12 +124,12 @@ describe("Cache Manager", () => {
         staleTime: 5000,
       });
 
-      expect(result3).toBe("data-2"); // Updated data
+      expect(result3).toBe('data-2'); // Updated data
       expect(mockFetch).toHaveBeenCalledTimes(2); // No additional fetch
     });
 
-    it("returns fresh data when cache is disabled with revalidate:false", async () => {
-      const key = "test-key";
+    it('returns fresh data when cache is disabled with revalidate:false', async () => {
+      const key = 'test-key';
 
       // First request - fetches and caches
       const result1 = await cacheManager.swr(key, mockFetch, {
@@ -141,7 +137,7 @@ describe("Cache Manager", () => {
         revalidate: false,
       });
 
-      expect(result1).toBe("data-1");
+      expect(result1).toBe('data-1');
 
       // Advance time to make data stale
       mockNow += 10000;
@@ -152,12 +148,12 @@ describe("Cache Manager", () => {
         revalidate: false,
       });
 
-      expect(result2).toBe("data-1");
+      expect(result2).toBe('data-1');
       expect(mockFetch).toHaveBeenCalledTimes(1); // No revalidation
     });
 
-    it("handles concurrent requests that trigger revalidation", async () => {
-      const key = "test-key";
+    it('handles concurrent requests that trigger revalidation', async () => {
+      const key = 'test-key';
 
       // First request - fetches and caches
       await cacheManager.swr(key, mockFetch, { staleTime: 5000 });
@@ -172,18 +168,18 @@ describe("Cache Manager", () => {
 
       // Both should resolve with stale data
       const [result1, result2] = await Promise.all([promise1, promise2]);
-      expect(result1).toBe("data-1");
-      expect(result2).toBe("data-1");
+      expect(result1).toBe('data-1');
+      expect(result2).toBe('data-1');
 
       // Only one revalidation should be triggered
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 10));
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 
-  describe("Cache Management", () => {
-    it("invalidates cache entries", async () => {
-      const key = "test-key";
+  describe('Cache Management', () => {
+    it('invalidates cache entries', async () => {
+      const key = 'test-key';
 
       // First request
       await cacheManager.swr(key, mockFetch);
@@ -197,31 +193,31 @@ describe("Cache Manager", () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
-    it("invalidates matching cache entries", async () => {
+    it('invalidates matching cache entries', async () => {
       // Populate cache with multiple entries
-      await cacheManager.swr("users/1", mockFetch);
-      await cacheManager.swr("users/2", mockFetch);
-      await cacheManager.swr("posts/1", mockFetch);
+      await cacheManager.swr('users/1', mockFetch);
+      await cacheManager.swr('users/2', mockFetch);
+      await cacheManager.swr('posts/1', mockFetch);
 
       expect(mockFetch).toHaveBeenCalledTimes(3);
 
       // Invalidate all user-related entries
-      cacheManager.invalidateMatching((key) => key.includes("users"));
+      cacheManager.invalidateMatching(key => key.includes('users'));
 
       // These should fetch again
-      await cacheManager.swr("users/1", mockFetch);
-      await cacheManager.swr("users/2", mockFetch);
+      await cacheManager.swr('users/1', mockFetch);
+      await cacheManager.swr('users/2', mockFetch);
 
       // This should use cache
-      await cacheManager.swr("posts/1", mockFetch);
+      await cacheManager.swr('posts/1', mockFetch);
 
       expect(mockFetch).toHaveBeenCalledTimes(5);
     });
 
-    it("clears all cache entries", async () => {
+    it('clears all cache entries', async () => {
       // Populate cache with multiple entries
-      await cacheManager.swr("key1", mockFetch);
-      await cacheManager.swr("key2", mockFetch);
+      await cacheManager.swr('key1', mockFetch);
+      await cacheManager.swr('key2', mockFetch);
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
 
@@ -229,17 +225,17 @@ describe("Cache Manager", () => {
       cacheManager.clear();
 
       // Should fetch again for all keys
-      await cacheManager.swr("key1", mockFetch);
-      await cacheManager.swr("key2", mockFetch);
+      await cacheManager.swr('key1', mockFetch);
+      await cacheManager.swr('key2', mockFetch);
 
       expect(mockFetch).toHaveBeenCalledTimes(4);
     });
   });
 
-  describe("Cache Key Management", () => {
-    it("correctly generates cache keys", () => {
-      const url1 = "https://example.com/api/users";
-      const url2 = "https://example.com/api/posts";
+  describe('Cache Key Management', () => {
+    it('correctly generates cache keys', () => {
+      const url1 = 'https://example.com/api/users';
+      const url2 = 'https://example.com/api/posts';
 
       const key1 = cacheManager.getCacheKey(url1);
       const key2 = cacheManager.getCacheKey(url2);
@@ -247,9 +243,9 @@ describe("Cache Manager", () => {
       expect(key1).not.toEqual(key2);
     });
 
-    it("uses custom cache key when provided", () => {
-      const url = "https://example.com/api/users";
-      const customKey = "custom-key";
+    it('uses custom cache key when provided', () => {
+      const url = 'https://example.com/api/users';
+      const customKey = 'custom-key';
 
       const key = cacheManager.getCacheKey(url, { cacheKey: customKey });
 
