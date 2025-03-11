@@ -1,0 +1,45 @@
+{
+    "compilerOptions": {
+      "target": "ES2020",
+      "useDefineForClassFields": true,
+      "module": "ESNext",
+      "lib": ["ES2020", "DOM", "DOM.Iterable"],
+      "skipLibCheck": true,
+      "esModuleInterop": true,
+
+      /* Bundler mode */
+      "moduleResolution": "bundler",
+      "allowImportingTsExtensions": true,
+      "resolveJsonModule": true,
+      "isolatedModules": true,
+      "noEmit": true,
+
+      /* For build output */
+      "outDir": "dist/types",
+      "declaration": true,
+      "declarationDir": "dist/types",
+
+      /* Linting */
+      "strict": true,
+      "noUnusedLocals": true,
+      "noUnusedParameters": true,
+      "noFallthroughCasesInSwitch": true,
+      "forceConsistentCasingInFileNames": true,
+
+      /* Debugging */
+      "sourceMap": true,
+
+      /* Path aliases */
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["src/*"],
+        "@core/*": ["src/core/*"],
+        "@utils/*": ["src/utils/*"],
+        "@adapters/*": ["src/adapters/*"],
+        "@cache/*": ["src/cache/*"],
+        "@fk-types/*": ["src/types/*"]
+      }
+    },
+    "include": ["src", "tests"],
+    "exclude": ["node_modules", "dist"]
+}
