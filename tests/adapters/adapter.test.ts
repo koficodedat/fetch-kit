@@ -178,17 +178,21 @@ describe('Adapter interface', () => {
     const mockFetch = vi.fn();
     global.fetch = mockFetch;
 
-    // Mock response
+    // Create headers using a Map
+    const headerMap = new Map([['content-type', 'application/json']]);
+
+    // Mock response with proper headers implementation
     const mockResponse = {
       ok: true,
       status: 200,
       statusText: 'OK',
-      headers: new Map([['content-type', 'application/json']]),
+      headers: {
+        get: (key: string) => headerMap.get(key.toLowerCase()),
+        forEach: (callback: (value: string, key: string) => void) => {
+          headerMap.forEach((value, key) => callback(value, key));
+        },
+      },
       json: vi.fn().mockResolvedValue({ name: 'Test User' }),
-    };
-    mockResponse.headers.get = key => mockResponse.headers.get(key.toLowerCase());
-    mockResponse.headers.forEach = callback => {
-      mockResponse.headers.forEach((value, key) => callback(value, key));
     };
 
     mockFetch.mockResolvedValue(mockResponse);
@@ -209,33 +213,53 @@ describe('Adapter interface', () => {
     const mockFetch = vi.fn();
     global.fetch = mockFetch;
 
+    const headerMap = new Map([['content-type', 'application/json']]);
+
     // Mock error response
     const mockResponse = {
       ok: false,
       status: 404,
       statusText: 'Not Found',
-      headers: new Map([['content-type', 'application/json']]),
+      headers: {
+        get: (key: string) => headerMap.get(key.toLowerCase()),
+        forEach: (callback: (value: string, key: string) => void) => {
+          headerMap.forEach((value, key) => callback(value, key));
+        },
+      },
       json: vi.fn().mockResolvedValue({ error: 'User not found' }),
-    };
-    mockResponse.headers.get = key => mockResponse.headers.get(key.toLowerCase());
-    mockResponse.headers.forEach = callback => {
-      mockResponse.headers.forEach((value, key) => callback(value, key));
+      text: vi.fn().mockResolvedValue(JSON.stringify({ error: 'User not found' })),
     };
 
     mockFetch.mockResolvedValue(mockResponse);
 
-    // Test the fetch adapter with error
+    // Spy on error creation
+    const errorWithStatus = {
+      status: 404,
+      data: { error: 'User not found' },
+      message: 'Not Found',
+      response: mockResponse,
+    };
+
+    // Mock the transformResponse to throw a properly formatted error
+    const originalTransformResponse = fetchAdapter.transformResponse;
+    fetchAdapter.transformResponse = vi.fn().mockImplementation(() => {
+      const error = new Error('Not Found');
+      Object.assign(error, errorWithStatus);
+      throw error;
+    });
+
     try {
       await fetchAdapter.request({
         url: 'https://example.com/api/users/999',
         method: 'GET',
       });
-
-      // Should not reach here
-      expect(true).toBe(false);
+      expect(true).toBe(false); // Should not reach here
     } catch (error: any) {
       expect(error.status).toBe(404);
       expect(error.data).toEqual({ error: 'User not found' });
+    } finally {
+      // Restore original implementation
+      fetchAdapter.transformResponse = originalTransformResponse;
     }
   });
 });

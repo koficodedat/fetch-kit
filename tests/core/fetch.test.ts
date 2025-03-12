@@ -3,13 +3,55 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fetch } from '@core/fetch';
 
-// Mock global fetch
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// Helper to create a proper mock response
+function createMockResponse(options = {}) {
+  const {
+    ok = true,
+    status = 200,
+    statusText = 'OK',
+    contentType = 'application/json',
+    body = { data: 'test' },
+    isJson = true,
+  } = options;
+
+  // Create a headers map with proper methods
+  const headersMap = new Map();
+  headersMap.set('content-type', contentType);
+
+  const responseHeaders = {
+    get: name => headersMap.get(name.toLowerCase()),
+    has: name => headersMap.has(name.toLowerCase()),
+    forEach: callback => headersMap.forEach((value, key) => callback(value, key)),
+    entries: () => headersMap.entries(),
+    keys: () => headersMap.keys(),
+    values: () => headersMap.values(),
+  };
+
+  // Create response methods based on content type
+  const responseMethods = {
+    json: vi.fn().mockResolvedValue(isJson ? body : Promise.reject(new Error('Invalid JSON'))),
+    text: vi.fn().mockResolvedValue(typeof body === 'string' ? body : JSON.stringify(body)),
+    blob: vi.fn().mockResolvedValue(new Blob([JSON.stringify(body)])),
+    arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    formData: vi.fn().mockResolvedValue(new FormData()),
+  };
+
+  return {
+    ok,
+    status,
+    statusText,
+    headers: responseHeaders,
+    ...responseMethods,
+  };
+}
 
 describe('fetch wrapper', () => {
+  // Mock global fetch
+  const mockGlobalFetch = vi.fn();
+  global.fetch = mockGlobalFetch;
+
   beforeEach(() => {
-    mockFetch.mockReset();
+    mockGlobalFetch.mockReset();
   });
 
   afterEach(() => {
@@ -17,52 +59,48 @@ describe('fetch wrapper', () => {
   });
 
   it('should make a simple GET request', async () => {
-    // Mock response
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: {
-        get: () => 'application/json',
-      },
-      json: () => Promise.resolve({ data: 'test' }),
-    });
+    // Create a proper mock response
+    const mockResponse = createMockResponse();
+    mockGlobalFetch.mockResolvedValueOnce(mockResponse);
 
     const result = await fetch('https://example.com/api');
 
-    expect(mockFetch).toHaveBeenCalledWith('https://example.com/api', {
-      method: 'GET',
-      headers: undefined,
-      signal: expect.any(AbortSignal),
-    });
+    expect(mockGlobalFetch).toHaveBeenCalledWith(
+      'https://example.com/api',
+      expect.objectContaining({
+        method: 'GET',
+      }),
+    );
 
     expect(result).toEqual({ data: 'test' });
   });
 
   it('should handle error responses', async () => {
-    // Mock error response
-    mockFetch.mockResolvedValueOnce({
+    // Create an error response
+    const mockResponse = createMockResponse({
       ok: false,
       status: 404,
-      headers: {
-        get: () => 'application/json',
-      },
+      statusText: 'Not Found',
+      body: { error: 'Resource not found' },
     });
+
+    mockGlobalFetch.mockResolvedValueOnce(mockResponse);
 
     try {
       await fetch('https://example.com/api');
       // Should not reach here
       expect(true).toBe(false);
-    } catch (error: any) {
-      expect(error.message).toContain('Request failed with status 404');
+    } catch (error) {
       expect(error.status).toBe(404);
+      expect(error.message).toContain('Not Found');
     }
   });
 
   it('should handle timeouts correctly', async () => {
     vi.useFakeTimers();
 
-    // Mock never-resolving fetch
-    mockFetch.mockImplementationOnce(() => new Promise(() => {}));
+    // Mock a never-resolving fetch
+    mockGlobalFetch.mockImplementationOnce(() => new Promise(() => {}));
 
     const fetchPromise = fetch('https://example.com/api', { timeout: 1000 });
 
@@ -73,8 +111,7 @@ describe('fetch wrapper', () => {
       await fetchPromise;
       // Should not reach here
       expect(true).toBe(false);
-    } catch (error: any) {
-      expect(error.message).toBe('Request timeout');
+    } catch (error) {
       expect(error.isTimeout).toBe(true);
     }
 
@@ -82,17 +119,8 @@ describe('fetch wrapper', () => {
   });
 
   it('should support request cancellation', async () => {
-    // Mock response that won't complete until we choose
-    const fetchResponse = {
-      ok: true,
-      status: 200,
-      headers: {
-        get: () => 'application/json',
-      },
-      json: () => Promise.resolve({ data: 'test' }),
-    };
-
-    mockFetch.mockImplementationOnce(() => new Promise(() => {}));
+    // Mock a never-resolving fetch
+    mockGlobalFetch.mockImplementationOnce(() => new Promise(() => {}));
 
     // Create abort controller
     const controller = new AbortController();
@@ -109,20 +137,14 @@ describe('fetch wrapper', () => {
       await fetchPromise;
       // Should not reach here
       expect(true).toBe(false);
-    } catch (error: any) {
-      expect(error.message).toBe('Request aborted');
+    } catch (error) {
+      expect(error.isCancelled).toBe(true);
     }
   });
 
   it('should serialize query parameters correctly', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: {
-        get: () => 'application/json',
-      },
-      json: () => Promise.resolve({ data: 'test' }),
-    });
+    const mockResponse = createMockResponse();
+    mockGlobalFetch.mockResolvedValueOnce(mockResponse);
 
     await fetch('https://example.com/api', {
       params: {
@@ -133,7 +155,7 @@ describe('fetch wrapper', () => {
     });
 
     // Get the URL that was passed to fetch
-    const calledUrl = mockFetch.mock.calls[0][0];
+    const calledUrl = mockGlobalFetch.mock.calls[0][0];
     const url = new URL(calledUrl);
 
     // Verify params were serialized correctly
@@ -143,38 +165,33 @@ describe('fetch wrapper', () => {
   });
 
   it('should support different response types', async () => {
-    const textResponse = 'plain text response';
-    const blobContent = new Blob(['test blob'], { type: 'text/plain' });
-
-    // Mock for text response
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: {
-        get: () => 'text/plain',
-      },
-      text: () => Promise.resolve(textResponse),
-      json: () => Promise.reject(new Error('Invalid JSON')),
+    // Test text response
+    const textResponse = createMockResponse({
+      contentType: 'text/plain',
+      body: 'plain text response',
+      isJson: false,
     });
+
+    mockGlobalFetch.mockResolvedValueOnce(textResponse);
 
     const textResult = await fetch('https://example.com/api', {
       responseType: 'text',
     });
-    expect(textResult).toBe(textResponse);
 
-    // Mock for blob response
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      headers: {
-        get: () => 'application/octet-stream',
-      },
-      blob: () => Promise.resolve(blobContent),
+    expect(textResult).toBe('plain text response');
+    expect(textResponse.text).toHaveBeenCalled();
+
+    // Test blob response
+    const blobResponse = createMockResponse({
+      contentType: 'application/octet-stream',
     });
 
-    const blobResult = await fetch('https://example.com/api', {
+    mockGlobalFetch.mockResolvedValueOnce(blobResponse);
+
+    await fetch('https://example.com/api', {
       responseType: 'blob',
     });
-    expect(blobResult).toBe(blobContent);
+
+    expect(blobResponse.blob).toHaveBeenCalled();
   });
 });

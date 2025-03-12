@@ -37,14 +37,14 @@ export function createError(message: string, options: Partial<FetchKitError> = {
  * Determines the error category based on status code and error type
  */
 export function categorizeError(error: any): ErrorCategory {
-  // Handle timeout errors
-  if (error.name === 'AbortError' || error.isTimeout) {
-    return ErrorCategory.Timeout;
+  // First, check if it's a cancellation (either directly flagged or an AbortError that isn't a timeout)
+  if (error.isCancelled || (error.name === 'AbortError' && error.isTimeout !== true)) {
+    return ErrorCategory.Cancel;
   }
 
-  // Handle cancelled requests
-  if (error.isCancelled || (error.name === 'AbortError' && !error.isTimeout)) {
-    return ErrorCategory.Cancel;
+  // Handle timeout errors
+  if (error.name === 'AbortError' && error.isTimeout === true) {
+    return ErrorCategory.Timeout;
   }
 
   // Handle network errors (like CORS, offline, etc.)
