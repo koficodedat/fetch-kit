@@ -25,6 +25,7 @@ describe('Adapter interface', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
+        originalResponse: { ok: true },
       }),
 
       transformRequest: vi.fn().mockReturnValue({
@@ -37,6 +38,7 @@ describe('Adapter interface', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
+        originalResponse: { ok: true },
       }),
     };
 
@@ -63,6 +65,7 @@ describe('Adapter interface', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
+        originalResponse: { ok: true }, // Add the ok property to avoid error
       }),
 
       transformRequest: vi.fn().mockReturnValue({
@@ -75,6 +78,7 @@ describe('Adapter interface', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
+        originalResponse: { ok: true }, // Add the ok property to avoid error
       }),
     };
 
@@ -111,6 +115,7 @@ describe('Adapter interface', () => {
           status: 200,
           statusText: 'OK',
           headers: {},
+          originalResponse: { ok: true }, // Add the ok property to avoid error
         };
       }),
 
@@ -124,7 +129,10 @@ describe('Adapter interface', () => {
       }),
 
       transformResponse: vi.fn().mockImplementation(response => {
-        return response;
+        return {
+          ...response,
+          originalResponse: { ok: true }, // Ensure the ok property is present
+        };
       }),
     };
 
@@ -159,7 +167,14 @@ describe('Adapter interface', () => {
     const mockAdapter: Adapter = {
       name: 'init-adapter',
 
-      request: vi.fn(),
+      request: vi.fn().mockResolvedValue({
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        originalResponse: { ok: true }, // Add ok property
+      }),
+
       transformRequest: vi.fn(),
       transformResponse: vi.fn(),
     };

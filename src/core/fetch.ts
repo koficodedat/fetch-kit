@@ -55,8 +55,8 @@ export async function fetch<T>(url: string, options: RequestOptions = {}): Promi
       // Execute the request
       const response = await adapter.request<T>(request);
 
-      // Handle non-200 responses
-      if (!response.originalResponse?.ok) {
+      // Handle non-200 responses - safely check if originalResponse exists and has 'ok' property
+      if (response.originalResponse && response.originalResponse.ok === false) {
         const error = createError(getErrorMessage(response.originalResponse || {}), {
           status: response.status,
           category: categorizeError(response.originalResponse || {}),
@@ -77,14 +77,14 @@ export async function fetch<T>(url: string, options: RequestOptions = {}): Promi
       const fetchError = createError(message, {
         cause: error,
         category,
-        status: error.status || error.response?.status,
+        status: error.status || (error.response && error.response.status),
         response: error.response,
         url: fullUrl,
         method,
         isTimeout: category === 'timeout',
         isCancelled: category === 'cancel',
         isNetworkError: category === 'network',
-        data: error.data || error.response?.data,
+        data: error.data || (error.response && error.response.data),
       });
 
       throw fetchError;
