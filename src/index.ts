@@ -7,6 +7,7 @@
 
 // Core functionality
 export { createFetchKit } from '@core/fetch-kit';
+export { RequestDeduper } from '@core/request-deduper';
 
 // Adapters
 export { fetchAdapter } from '@adapters/fetch-adapter';
@@ -37,4 +38,5 @@ export type {
   ExtendedRequestOptions,
   ExtendedFetchKitConfig,
   CacheMethods,
+  DeduplicationMethods,
 } from '@fk-types/core-extension';

@@ -26,5 +26,5 @@
     "**/dist": true,
     "**/coverage": true
   },
-  "cSpell.words": ["fetchkit", "Kofi", "Nedjoh"]
+  "cSpell.words": ["Deduper", "fetchkit", "Kofi", "Nedjoh"]
 }

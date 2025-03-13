@@ -4,6 +4,7 @@ import { fetch } from '@core/fetch';
 import { adapterRegistry } from '@adapters/adapter-registry';
 import { CacheManager } from '@cache/cache-manager';
 import { generateCacheKey } from '@cache/cache-key';
+import { RequestDeduper } from '@core/request-deduper';
 import type { Adapter } from '@fk-types/adapter';
 import type { CacheOptions } from '@fk-types/cache';
 import type { RequestOptions } from '@fk-types/core';
@@ -11,6 +12,7 @@ import type {
   ExtendedFetchKitConfig,
   ExtendedRequestOptions,
   CacheMethods,
+  DeduplicationMethods,
 } from '@fk-types/core-extension';
 import type { RetryConfig } from '@fk-types/error';
 
@@ -18,12 +20,12 @@ import type { RetryConfig } from '@fk-types/error';
  * Core FetchKit interface from original implementation
  */
 export interface BaseFetchKit {
-  fetch: <T>(url: string, options?: RequestOptions) => Promise<T>;
-  get: <T>(url: string, options?: RequestOptions) => Promise<T>;
-  post: <T>(url: string, data?: any, options?: RequestOptions) => Promise<T>;
-  put: <T>(url: string, data?: any, options?: RequestOptions) => Promise<T>;
-  delete: <T>(url: string, options?: RequestOptions) => Promise<T>;
-  patch: <T>(url: string, data?: any, options?: RequestOptions) => Promise<T>;
+  fetch: <T>(url: string, options?: ExtendedRequestOptions) => Promise<T>;
+  get: <T>(url: string, options?: ExtendedRequestOptions) => Promise<T>;
+  post: <T>(url: string, data?: any, options?: ExtendedRequestOptions) => Promise<T>;
+  put: <T>(url: string, data?: any, options?: ExtendedRequestOptions) => Promise<T>;
+  delete: <T>(url: string, options?: ExtendedRequestOptions) => Promise<T>;
+  patch: <T>(url: string, data?: any, options?: ExtendedRequestOptions) => Promise<T>;
   createAbortController: () => {
     controller: AbortController;
     abort: (reason?: any) => void;
@@ -37,9 +39,9 @@ export interface BaseFetchKit {
 }
 
 /**
- * Extended FetchKit interface with cache methods
+ * Extended FetchKit interface with cache and deduplication methods
  */
-export type FetchKit = BaseFetchKit & CacheMethods;
+export type FetchKit = BaseFetchKit & CacheMethods & DeduplicationMethods;
 
 /**
  * Creates a new FetchKit instance with the specified configuration
@@ -52,10 +54,14 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     retry,
     adapter,
     cacheOptions: globalCacheOptions,
+    deduplicate = true,
   } = config;
 
   // Initialize cache manager
   const cacheManager = new CacheManager();
+
+  // Initialize request deduper
+  const requestDeduper = new RequestDeduper();
 
   // Set default cache options
   const defaultCacheOptions: CacheOptions = {
@@ -143,7 +149,20 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
   };
 
   /**
-   * Main fetch method with caching support
+   * Process deduplication options from both global config and request options
+   */
+  const processDeduplicationOption = (requestDeduplicate?: boolean): boolean => {
+    // If deduplication is explicitly set for this request, use that value
+    if (requestDeduplicate !== undefined) {
+      return requestDeduplicate;
+    }
+
+    // Otherwise use the global setting
+    return deduplicate;
+  };
+
+  /**
+   * Main fetch method with caching and deduplication support
    */
   const fetchMethod = async <T>(url: string, options: ExtendedRequestOptions = {}): Promise<T> => {
     const fullUrl = normalizeUrl(url);
@@ -151,25 +170,52 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     const requestTimeout = options.timeout ?? timeout;
     const retryOptions = processRetryOptions(options.retry);
     const cacheOptions = processCacheOptions(options.cacheOptions);
+    const shouldDeduplicate = processDeduplicationOption(options.deduplicate);
 
-    // Handle caching for GET requests
-    if ((options.method === 'GET' || !options.method) && cacheOptions) {
-      const cacheKey = getCacheKey(fullUrl, { ...options, headers });
+    // Generate a key for caching and deduplication
+    const requestKey = getCacheKey(fullUrl, { ...options, headers });
 
-      return cacheManager.swr<T>(
-        cacheKey,
-        () =>
+    // For GET requests, handle caching and deduplication
+    if (options.method === 'GET' || !options.method) {
+      // If deduplication is enabled, wrap the execution
+      const executeWithPossibleDeduplication = (fetchFn: () => Promise<T>): Promise<T> => {
+        if (shouldDeduplicate) {
+          return requestDeduper.dedupe(requestKey, fetchFn);
+        }
+        return fetchFn();
+      };
+
+      // If caching is enabled, use SWR pattern
+      if (cacheOptions) {
+        return cacheManager.swr<T>(
+          requestKey,
+          () =>
+            executeWithPossibleDeduplication(() =>
+              executeRequest<T>(fullUrl, {
+                ...options,
+                headers,
+                timeout: requestTimeout,
+                retry: retryOptions,
+              }),
+            ),
+          cacheOptions,
+        );
+      }
+
+      // If only deduplication is enabled (no caching)
+      if (shouldDeduplicate) {
+        return requestDeduper.dedupe(requestKey, () =>
           executeRequest<T>(fullUrl, {
             ...options,
             headers,
             timeout: requestTimeout,
             retry: retryOptions,
           }),
-        cacheOptions,
-      );
+        );
+      }
     }
 
-    // For non-GET requests or when cache is disabled, bypass cache
+    // For non-GET requests, mutations, or when both cache and deduplication are disabled
     return executeRequest<T>(fullUrl, {
       ...options,
       headers,
@@ -179,7 +225,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
   };
 
   /**
-   * Execute the actual fetch request (without caching)
+   * Execute the actual fetch request (without caching or deduplication)
    */
   const executeRequest = <T>(url: string, options: RequestOptions = {}): Promise<T> => {
     return fetch<T>(url, options);
@@ -288,6 +334,23 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
 
     getCacheKey: (url: string, options?: ExtendedRequestOptions): string => {
       return getCacheKey(normalizeUrl(url), options);
+    },
+
+    // Deduplication management methods
+    getInFlightRequestsCount: (): number => {
+      return requestDeduper.getInFlightCount();
+    },
+
+    getInFlightRequestKeys: (): string[] => {
+      return requestDeduper.getInFlightKeys();
+    },
+
+    isRequestInFlight: (cacheKey: string): boolean => {
+      return requestDeduper.isInFlight(cacheKey);
+    },
+
+    cancelInFlightRequests: (): void => {
+      requestDeduper.clearInFlightRequests();
     },
   };
 
