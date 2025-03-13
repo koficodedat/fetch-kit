@@ -2,6 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ErrorCategory } from '@fk-types/error';
+import { mockImmediateTimeout } from '../setup';
 
 // Mock the error module
 vi.mock('@utils/error', () => ({
@@ -94,6 +95,7 @@ describe('fetch wrapper', () => {
   // Mock global fetch
   const mockGlobalFetch = vi.fn();
   global.fetch = mockGlobalFetch;
+  let originalTimeout;
 
   beforeEach(() => {
     mockGlobalFetch.mockReset();
@@ -143,6 +145,9 @@ describe('fetch wrapper', () => {
   });
 
   it('should handle timeouts correctly', async () => {
+    // Use mockImmediateTimeout for the test
+    originalTimeout = mockImmediateTimeout();
+
     // Create an abort error that will trigger the timeout logic
     const abortError = new DOMException('The operation was aborted', 'AbortError');
 
@@ -163,6 +168,9 @@ describe('fetch wrapper', () => {
       // Verify error category and timeout flag
       expect(error.category).toBe(ErrorCategory.Timeout);
       expect(error.isTimeout).toBe(true);
+    } finally {
+      // Restore original setTimeout
+      global.setTimeout = originalTimeout;
     }
   });
 

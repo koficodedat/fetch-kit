@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createFetchKit } from '@core/fetch-kit';
 import * as fetchModule from '@core/fetch';
 import { ExtendedRequestOptions } from '@fk-types/core-extension';
+import { mockDeterministicRandom } from '../setup';
 
 // Mock the fetch module
 vi.mock('@core/fetch', () => ({
@@ -14,14 +15,18 @@ describe('FetchKit caching', () => {
   // Mock Date.now for predictable testing
   const originalDateNow = Date.now;
   let mockNow = 1609459200000; // 2021-01-01
+  let originalRandom: () => number;
 
   beforeEach(() => {
     vi.resetAllMocks();
     Date.now = vi.fn(() => mockNow);
+    // Use mockDeterministicRandom for consistent jitter
+    originalRandom = mockDeterministicRandom();
   });
 
   afterEach(() => {
     Date.now = originalDateNow;
+    Math.random = originalRandom;
   });
 
   it('should cache GET requests by default', async () => {
@@ -109,9 +114,6 @@ describe('FetchKit caching', () => {
     // The revalidation is started in the background
     const result2 = await fk.get('/users');
     expect(result2).toEqual({ data: 'response1' }); // Still returns stale data
-
-    // Remove this assertion as revalidation may start immediately
-    // expect(fetchModule.fetch).toHaveBeenCalledTimes(1);
 
     // Wait for revalidation to complete
     await new Promise(resolve => setTimeout(resolve, 10));

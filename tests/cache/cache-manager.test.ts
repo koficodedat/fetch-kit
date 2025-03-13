@@ -3,6 +3,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CacheManager } from '@cache/cache-manager';
 import { createCacheEntry, isEntryStale, isEntryExpired } from '@cache/cache-entry';
+import { mockFastTimeout } from '../setup';
 
 describe('Cache Manager', () => {
   // Mock Date.now for predictable testing
@@ -10,6 +11,7 @@ describe('Cache Manager', () => {
   let mockNow = 1609459200000; // 2021-01-01
   let cacheManager: CacheManager;
   let fetchCount = 0;
+  let originalTimeout: typeof setTimeout;
 
   // Mock fetch function that counts calls
   const mockFetch = vi.fn().mockImplementation(() => {
@@ -22,10 +24,14 @@ describe('Cache Manager', () => {
     fetchCount = 0;
     mockFetch.mockClear();
     Date.now = vi.fn(() => mockNow);
+    // Use mockFastTimeout for revalidation tests
+    originalTimeout = mockFastTimeout();
   });
 
   afterEach(() => {
     Date.now = originalDateNow;
+    // Restore original setTimeout
+    global.setTimeout = originalTimeout;
   });
 
   describe('Cache Entry Functions', () => {
@@ -114,7 +120,7 @@ describe('Cache Manager', () => {
 
       expect(result2).toBe('data-1'); // Still returns stale data immediately
 
-      // Wait for revalidation
+      // Wait for revalidation - using mockFastTimeout, this should be quick
       await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(mockFetch).toHaveBeenCalledTimes(2); // Additional fetch for revalidation

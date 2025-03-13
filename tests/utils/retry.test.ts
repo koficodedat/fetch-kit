@@ -9,20 +9,26 @@ import {
 } from '@utils/retry';
 import { ErrorCategory, RetryConfig } from '@fk-types/error';
 import { createError } from '@utils/error';
+import { mockDeterministicRandom, mockImmediateTimeout, mockFastTimeout } from '../setup';
 
 describe('Retry utilities', () => {
-  const originalMathRandom = Math.random;
+  let originalRandom: () => number;
+  let originalTimeout: typeof setTimeout | undefined;
 
   beforeEach(() => {
     vi.useFakeTimers();
-
-    // Mock Math.random to return a consistent value for predictable jitter
-    Math.random = vi.fn().mockReturnValue(0.5);
+    originalRandom = mockDeterministicRandom();
   });
 
   afterEach(() => {
     // Restore the original Math.random
-    Math.random = originalMathRandom;
+    Math.random = originalRandom;
+
+    // Restore setTimeout if it was mocked
+    if (originalTimeout) {
+      global.setTimeout = originalTimeout;
+      originalTimeout = undefined;
+    }
 
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -75,7 +81,7 @@ describe('Retry utilities', () => {
 
     it('should add jitter to the delay', () => {
       // Temporarily restore real Math.random for this test
-      Math.random = originalMathRandom;
+      Math.random = originalRandom;
 
       const config = { count: 3, delay: 1000, backoff: 'fixed' } as RetryConfig;
       const delay1 = calculateRetryDelay(config, 1);
@@ -91,7 +97,7 @@ describe('Retry utilities', () => {
       expect(delay2).toBeLessThanOrEqual(1200);
 
       // Restore our mocked Math.random
-      Math.random = vi.fn().mockReturnValue(0.5);
+      originalRandom = mockDeterministicRandom();
     });
   });
 
@@ -171,12 +177,8 @@ describe('Retry utilities', () => {
     });
 
     it('should retry on failure until success', async () => {
-      // Mock setTimeout to execute immediately
-      const originalSetTimeout = global.setTimeout;
-      global.setTimeout = vi.fn(callback => {
-        callback();
-        return 1 as any;
-      });
+      // Use immediate timeout for faster tests
+      originalTimeout = mockImmediateTimeout();
 
       // Fail twice, succeed on third attempt
       const requestFn = vi
@@ -189,18 +191,11 @@ describe('Retry utilities', () => {
 
       expect(result).toBe('success');
       expect(requestFn).toHaveBeenCalledTimes(3);
-
-      // Restore original setTimeout
-      global.setTimeout = originalSetTimeout;
     });
 
     it('should respect max retry count', async () => {
-      // Mock setTimeout to execute immediately
-      const originalSetTimeout = global.setTimeout;
-      global.setTimeout = vi.fn(callback => {
-        callback();
-        return 1 as any;
-      });
+      // Use immediate timeout for faster tests
+      originalTimeout = mockImmediateTimeout();
 
       // Always fail
       const requestFn = vi
@@ -214,18 +209,11 @@ describe('Retry utilities', () => {
       } catch {
         expect(requestFn).toHaveBeenCalledTimes(2);
       }
-
-      // Restore original setTimeout
-      global.setTimeout = originalSetTimeout;
     });
 
     it('should respect custom shouldRetry function', async () => {
-      // Mock setTimeout to execute immediately
-      const originalSetTimeout = global.setTimeout;
-      global.setTimeout = vi.fn(callback => {
-        callback();
-        return 1 as any;
-      });
+      // Use immediate timeout for faster tests
+      originalTimeout = mockImmediateTimeout();
 
       // Custom function that only retries on status 500
       const shouldRetry = vi.fn(error => error.status === 500);
@@ -248,9 +236,6 @@ describe('Retry utilities', () => {
         expect(shouldRetry).toHaveBeenCalledTimes(2);
         expect(error.status).toBe(400);
       }
-
-      // Restore original setTimeout
-      global.setTimeout = originalSetTimeout;
     });
 
     it('should wait appropriate delay between retries', async () => {
@@ -258,7 +243,7 @@ describe('Retry utilities', () => {
       vi.useRealTimers();
 
       // We'll use a manual promise to control the flow instead of relying on timers
-      let resolveSecondCall: any;
+      let resolveSecondCall: (value?: unknown) => void;
       const secondCallPromise = new Promise(resolve => {
         resolveSecondCall = resolve;
       });
@@ -272,17 +257,12 @@ describe('Retry utilities', () => {
           return Promise.resolve('success');
         });
 
-      // Override setTimeout to make it faster for testing
-      // but still maintain the real behavior
-      const originalSetTimeout = global.setTimeout;
-      global.setTimeout = vi.fn(callback => {
-        // Use a very short timeout (10ms) for testing
-        return originalSetTimeout(callback, 10);
-      });
+      // Use fast timeout (10ms) for faster tests
+      originalTimeout = mockFastTimeout(10);
 
       // Start the retry process
       const retryPromise = withRetry(requestFn, {
-        delay: 100, // Doesn't matter, we're overriding setTimeout
+        delay: 100, // Will be overridden to 10ms by mockFastTimeout
         backoff: 'fixed',
       });
 
@@ -298,18 +278,11 @@ describe('Retry utilities', () => {
       // Wait for the retry process to complete
       const result = await retryPromise;
       expect(result).toBe('success');
-
-      // Restore original setTimeout
-      global.setTimeout = originalSetTimeout;
     });
 
     it('should track retry count in error object', async () => {
-      // Mock setTimeout to execute immediately
-      const originalSetTimeout = global.setTimeout;
-      global.setTimeout = vi.fn(callback => {
-        callback();
-        return 1 as any;
-      });
+      // Use immediate timeout for faster tests
+      originalTimeout = mockImmediateTimeout();
 
       let lastError: any;
 
@@ -326,9 +299,6 @@ describe('Retry utilities', () => {
 
       expect(requestFn).toHaveBeenCalledTimes(3);
       expect(lastError.retryCount).toBe(2); // 0-based index, so 2 means 3 attempts
-
-      // Restore original setTimeout
-      global.setTimeout = originalSetTimeout;
     });
   });
 });

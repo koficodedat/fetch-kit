@@ -1,7 +1,8 @@
 // tests/core/fetch.error.test.ts
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ErrorCategory } from '@fk-types/error';
+import { mockImmediateTimeout, mockAbortController } from '../setup';
 
 // Create pre-defined error and response objects
 const serverError = {
@@ -59,11 +60,19 @@ import { withRetry } from '@utils/retry';
 describe('Fetch with retry', () => {
   // Mock fetch directly for the retry test
   let mockFunction: any;
+  let originalTimeout: typeof setTimeout;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockFunction = vi.fn().mockResolvedValue(successResponse);
     vi.mocked(withRetry).mockImplementation(fn => fn());
+    // Use mockImmediateTimeout
+    originalTimeout = mockImmediateTimeout();
+  });
+
+  afterEach(() => {
+    // Restore original setTimeout
+    global.setTimeout = originalTimeout;
   });
 
   it('should use retry mechanism when configured', async () => {
@@ -99,8 +108,20 @@ import { fetch } from '@core/fetch';
 import { createError } from '@utils/error';
 
 describe('Fetch error handling', () => {
+  let originalTimeout: typeof setTimeout;
+  let mockController: any;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    // Use mockImmediateTimeout
+    originalTimeout = mockImmediateTimeout();
+    // Use mockAbortController
+    mockController = mockAbortController();
+  });
+
+  afterEach(() => {
+    // Restore original setTimeout
+    global.setTimeout = originalTimeout;
   });
 
   it('should handle successful responses', async () => {
@@ -140,12 +161,13 @@ describe('Fetch error handling', () => {
   it('should handle aborted requests', async () => {
     vi.mocked(fetch).mockRejectedValueOnce(cancelError);
 
-    const controller = new AbortController();
-
     try {
       const promise = fetch('https://example.com/api', {
-        signal: controller.signal,
+        signal: mockController.signal,
       });
+
+      // Abort the request
+      mockController.abort();
 
       await promise;
       expect(true).toBe(false); // Should not reach here
