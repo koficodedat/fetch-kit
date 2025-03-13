@@ -13,7 +13,7 @@ export const fetchAdapter: Adapter = {
   /**
    * Execute a request using fetch
    */
-  async request<T>(request: AdapterRequest): Promise<AdapterResponse<T>> {
+  async request(request: AdapterRequest): Promise<AdapterResponse> {
     const { url, method, headers, body, signal, ...restOptions } = request;
 
     // Create fetch options
@@ -33,7 +33,7 @@ export const fetchAdapter: Adapter = {
     const response = await window.fetch(url, fetchOptions);
 
     // Transform the response
-    return this.transformResponse<T>(response);
+    return this.transformResponse(response);
   },
 
   /**
@@ -82,7 +82,7 @@ export const fetchAdapter: Adapter = {
   /**
    * Transform fetch response to standardized format
    */
-  async transformResponse<T>(response: Response): Promise<AdapterResponse<T>> {
+  async transformResponse(response: Response): Promise<AdapterResponse> {
     // Extract headers
     const headers: Record<string, string> = {};
     response.headers.forEach((value, key) => {

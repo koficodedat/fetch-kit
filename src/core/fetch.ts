@@ -53,7 +53,7 @@ export async function fetch<T>(url: string, options: RequestOptions = {}): Promi
       });
 
       // Execute the request
-      const response = await adapter.request<T>(request);
+      const response = await adapter.request(request);
 
       // Handle non-200 responses - safely check if originalResponse exists and has 'ok' property
       if (response.originalResponse && response.originalResponse.ok === false) {

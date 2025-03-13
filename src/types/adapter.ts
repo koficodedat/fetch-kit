@@ -79,7 +79,7 @@ export interface Adapter {
   /**
    * Execute a request with the adapter
    */
-  request<T>(request: AdapterRequest): Promise<AdapterResponse<T>>;
+  request(request: AdapterRequest): Promise<AdapterResponse>;
 
   /**
    * Transform FetchKit request options to adapter-specific request
@@ -89,5 +89,5 @@ export interface Adapter {
   /**
    * Transform adapter response to a standard format
    */
-  transformResponse<T>(response: any): AdapterResponse<T>;
+  transformResponse(response: any): Promise<AdapterResponse> | AdapterResponse;
 }
