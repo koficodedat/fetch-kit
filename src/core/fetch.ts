@@ -11,7 +11,7 @@ import { withRetry } from '@utils/retry';
  * Core fetch wrapper function using the active adapter with enhanced error handling
  */
 export async function fetch<T>(url: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', params, responseType = 'json', timeout, retry, ...restOptions } = options;
+  const { method = 'GET', params, timeout, retry, ...restOptions } = options;
 
   // Build URL with query parameters
   const fullUrl = params ? buildUrl(url, params) : url;

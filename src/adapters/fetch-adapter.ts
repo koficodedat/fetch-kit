@@ -96,7 +96,7 @@ export const fetchAdapter: Adapter = {
     if (contentType.includes('application/json')) {
       try {
         data = await response.json();
-      } catch (e) {
+      } catch {
         data = await response.text();
       }
     } else if (contentType.includes('text/')) {
