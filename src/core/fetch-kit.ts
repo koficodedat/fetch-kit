@@ -14,7 +14,9 @@ import type {
   CacheMethods,
   DeduplicationMethods,
 } from '@fk-types/core-extension';
-import type { RetryConfig } from '@fk-types/error';
+import type { FetchKitError, RetryConfig } from '@fk-types/error';
+import { FetchKitEvents, SubscriptionMethods } from '@/types/events';
+import { EventEmitter, Listener, Unsubscribe } from './event-emitter';
 
 /**
  * Core FetchKit interface from original implementation
@@ -41,7 +43,7 @@ export interface BaseFetchKit {
 /**
  * Extended FetchKit interface with cache and deduplication methods
  */
-export type FetchKit = BaseFetchKit & CacheMethods & DeduplicationMethods;
+export type FetchKit = BaseFetchKit & CacheMethods & DeduplicationMethods & SubscriptionMethods;
 
 /**
  * Creates a new FetchKit instance with the specified configuration
@@ -62,6 +64,9 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
 
   // Initialize request deduper
   const requestDeduper = new RequestDeduper();
+
+  // Initialize event emitter
+  const emitter = new EventEmitter<FetchKitEvents>();
 
   // Set default cache options
   const defaultCacheOptions: CacheOptions = {
@@ -166,6 +171,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
    */
   const fetchMethod = async <T>(url: string, options: ExtendedRequestOptions = {}): Promise<T> => {
     const fullUrl = normalizeUrl(url);
+    const method = options.method || 'GET';
     const headers = { ...defaultHeaders, ...options.headers };
     const requestTimeout = options.timeout ?? timeout;
     const retryOptions = processRetryOptions(options.retry);
@@ -175,53 +181,184 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     // Generate a key for caching and deduplication
     const requestKey = getCacheKey(fullUrl, { ...options, headers });
 
-    // For GET requests, handle caching and deduplication
-    if (options.method === 'GET' || !options.method) {
-      // If deduplication is enabled, wrap the execution
-      const executeWithPossibleDeduplication = (fetchFn: () => Promise<T>): Promise<T> => {
-        if (shouldDeduplicate) {
-          return requestDeduper.dedupe(requestKey, fetchFn);
-        }
-        return fetchFn();
-      };
-
-      // If caching is enabled, use SWR pattern
-      if (cacheOptions) {
-        return cacheManager.swr<T>(
-          requestKey,
-          () =>
-            executeWithPossibleDeduplication(() =>
-              executeRequest<T>(fullUrl, {
-                ...options,
-                headers,
-                timeout: requestTimeout,
-                retry: retryOptions,
-              }),
-            ),
-          cacheOptions,
-        );
-      }
-
-      // If only deduplication is enabled (no caching)
-      if (shouldDeduplicate) {
-        return requestDeduper.dedupe(requestKey, () =>
-          executeRequest<T>(fullUrl, {
-            ...options,
-            headers,
-            timeout: requestTimeout,
-            retry: retryOptions,
-          }),
-        );
-      }
-    }
-
-    // For non-GET requests, mutations, or when both cache and deduplication are disabled
-    return executeRequest<T>(fullUrl, {
-      ...options,
-      headers,
-      timeout: requestTimeout,
-      retry: retryOptions,
+    // Emit request:start event
+    emitter.emit('request:start', {
+      url: fullUrl,
+      method,
+      options: { ...options, headers },
     });
+
+    // Start timing the request
+    const startTime = Date.now();
+
+    // Track if request succeeded
+    let success = false;
+
+    try {
+      // For GET requests, handle caching and deduplication
+      if (method === 'GET') {
+        // If caching is enabled, use SWR pattern
+        if (cacheOptions) {
+          // Check cache first for event emission
+          const cachedData = cacheManager.get<T>(requestKey);
+          if (cachedData) {
+            // Cache hit
+            emitter.emit('cache:hit', {
+              key: requestKey,
+              data: cachedData,
+              isStale: cacheManager.isStale(requestKey),
+            });
+          } else {
+            // Cache miss
+            emitter.emit('cache:miss', { key: requestKey });
+          }
+
+          // Function to execute request with possible deduplication
+          const executeWithPossibleDeduplication = (fetchFn: () => Promise<T>): Promise<T> => {
+            if (shouldDeduplicate) {
+              return requestDeduper.dedupe(requestKey, fetchFn);
+            }
+            return fetchFn();
+          };
+
+          // Execute the request with SWR
+          const result = await cacheManager.swr<T>(
+            requestKey,
+            () =>
+              executeWithPossibleDeduplication(() =>
+                executeRequest<T>(fullUrl, {
+                  ...options,
+                  headers,
+                  timeout: requestTimeout,
+                  retry: retryOptions,
+                }),
+              ),
+            cacheOptions,
+          );
+
+          // Emit success event
+          success = true;
+          emitter.emit('request:success', {
+            url: fullUrl,
+            method,
+            data: result,
+            duration: Date.now() - startTime,
+          });
+
+          return result;
+        }
+
+        // If only deduplication is enabled (no caching)
+        if (shouldDeduplicate) {
+          const result = await requestDeduper.dedupe(requestKey, () =>
+            executeRequest<T>(fullUrl, {
+              ...options,
+              headers,
+              timeout: requestTimeout,
+              retry: retryOptions,
+            }),
+          );
+
+          // Emit success event
+          success = true;
+          emitter.emit('request:success', {
+            url: fullUrl,
+            method,
+            data: result,
+            duration: Date.now() - startTime,
+          });
+
+          return result;
+        }
+      }
+
+      // For non-GET requests, mutations, or when both cache and deduplication are disabled
+      const result = await executeRequest<T>(fullUrl, {
+        ...options,
+        headers,
+        timeout: requestTimeout,
+        retry: retryOptions,
+      });
+
+      // Emit success event
+      success = true;
+      emitter.emit('request:success', {
+        url: fullUrl,
+        method,
+        data: result,
+        duration: Date.now() - startTime,
+      });
+
+      return result;
+    } catch (error) {
+      // Emit error event
+      const typedError = error instanceof Error ? error : new Error(String(error));
+      const fetchKitError = typedError as FetchKitError;
+
+      emitter.emit('request:error', {
+        url: fullUrl,
+        method,
+        error: fetchKitError,
+        duration: Date.now() - startTime,
+      });
+
+      // Also emit the general error event
+      emitter.emit('error', typedError);
+
+      throw error;
+    } finally {
+      // Emit complete event
+      emitter.emit('request:complete', {
+        url: fullUrl,
+        method,
+        success,
+        duration: Date.now() - startTime,
+      });
+    }
+  };
+
+  /**
+   * Invalidates the cache for a specific key or clears all cache if no key is provided.
+   * Emits a 'cache:invalidate' event.
+   */
+  const invalidateCache = (cacheKey?: string): void => {
+    if (cacheKey) {
+      cacheManager.invalidate(cacheKey);
+      // Emit cache:invalidate event
+      emitter.emit('cache:invalidate', { key: cacheKey });
+    } else {
+      cacheManager.clear();
+      // Emit cache:invalidate with null key to indicate all cache cleared
+      emitter.emit('cache:invalidate', { key: null });
+    }
+  };
+
+  // Add subscription methods to the FetchKit instance
+  const subscriptionMethods: SubscriptionMethods = {
+    on: <E extends keyof FetchKitEvents>(
+      event: E,
+      listener: Listener<FetchKitEvents[E]>,
+    ): Unsubscribe => {
+      return emitter.on(event, listener);
+    },
+
+    once: <E extends keyof FetchKitEvents>(
+      event: E,
+      listener: Listener<FetchKitEvents[E]>,
+    ): Unsubscribe => {
+      return emitter.once(event, listener);
+    },
+
+    off: <E extends keyof FetchKitEvents>(
+      event: E,
+      listener: Listener<FetchKitEvents[E]>,
+    ): boolean => {
+      return emitter.off(event, listener);
+    },
+
+    listenerCount: (event: keyof FetchKitEvents): number => {
+      return emitter.listenerCount(event);
+    },
   };
 
   /**
@@ -261,26 +398,18 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
 
   // Build the FetchKit instance
   const fetchKit: FetchKit = {
-    fetch: fetchMethod as <T>(url: string, options?: RequestOptions) => Promise<T>,
+    fetch: fetchMethod,
 
     get: <T>(url: string, options: ExtendedRequestOptions = {}): Promise<T> => {
       return fetchMethod<T>(url, { ...options, method: 'GET' });
     },
 
     post: <T>(url: string, data?: any, options: ExtendedRequestOptions = {}): Promise<T> => {
-      return fetchMethod<T>(url, {
-        ...options,
-        method: 'POST',
-        body: data,
-      });
+      return fetchMethod<T>(url, { ...options, method: 'POST', body: data });
     },
 
     put: <T>(url: string, data?: any, options: ExtendedRequestOptions = {}): Promise<T> => {
-      return fetchMethod<T>(url, {
-        ...options,
-        method: 'PUT',
-        body: data,
-      });
+      return fetchMethod<T>(url, { ...options, method: 'PUT', body: data });
     },
 
     delete: <T>(url: string, options: ExtendedRequestOptions = {}): Promise<T> => {
@@ -288,11 +417,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     },
 
     patch: <T>(url: string, data?: any, options: ExtendedRequestOptions = {}): Promise<T> => {
-      return fetchMethod<T>(url, {
-        ...options,
-        method: 'PATCH',
-        body: data,
-      });
+      return fetchMethod<T>(url, { ...options, method: 'PATCH', body: data });
     },
 
     createAbortController,
@@ -320,13 +445,7 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     },
 
     // Cache management methods
-    invalidateCache: (cacheKey?: string): void => {
-      if (cacheKey) {
-        cacheManager.invalidate(cacheKey);
-      } else {
-        cacheManager.clear();
-      }
-    },
+    invalidateCache,
 
     invalidateCacheMatching: (predicate: (key: string) => boolean): void => {
       cacheManager.invalidateMatching(predicate);
@@ -352,6 +471,9 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     cancelInFlightRequests: (): void => {
       requestDeduper.clearInFlightRequests();
     },
+
+    // Subscription management methods
+    ...subscriptionMethods,
   };
 
   return fetchKit;

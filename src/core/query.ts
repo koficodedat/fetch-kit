@@ -71,7 +71,7 @@ export class Query<T = unknown> {
   /**
    * The URL to fetch
    */
-  private url: string;
+  private _url: string;
 
   /**
    * The FetchKit instance to use for fetching
@@ -111,7 +111,7 @@ export class Query<T = unknown> {
    */
   constructor(fetchKit: FetchKit, url: string, options: QueryOptions = {}) {
     this.fetchKit = fetchKit;
-    this.url = url;
+    this._url = url;
     this.options = options;
 
     // Set initial data if provided
@@ -144,6 +144,13 @@ export class Query<T = unknown> {
    */
   getState(): QueryState<T> {
     return { ...this.state };
+  }
+
+  /**
+   * Get the url
+   */
+  get url(): string {
+    return this._url;
   }
 
   /**

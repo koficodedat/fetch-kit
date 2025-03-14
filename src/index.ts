@@ -19,6 +19,11 @@ export { MemoryCache } from '@cache/memory-cache';
 export { generateCacheKey } from '@cache/cache-key';
 export { createCacheEntry, isEntryStale, isEntryExpired } from '@cache/cache-entry';
 
+// Publisher/Subscriber
+export { EventEmitter } from '@core/event-emitter';
+export type { Listener, Unsubscribe } from '@core/event-emitter';
+export type { FetchKitEvents, SubscriptionMethods } from '@fk-types/events';
+
 // Utilities
 export { withRetry, DEFAULT_RETRY_CONFIG } from '@utils/retry';
 export { createError, categorizeError, getErrorMessage } from '@utils/error';
