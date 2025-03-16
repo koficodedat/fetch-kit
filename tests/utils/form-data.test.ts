@@ -5,7 +5,7 @@ import {
   createMultipartBody,
   createUploadStream,
   type FormDataOptions,
-} from '../../src/utils/form-data';
+} from '@utils/form-data';
 
 describe('form-data utils', () => {
   describe('createFormData', () => {

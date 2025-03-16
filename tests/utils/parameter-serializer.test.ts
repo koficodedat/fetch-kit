@@ -3,7 +3,7 @@ import {
   serializeParams,
   deserializeParams,
   type SerializationOptions,
-} from '../../src/utils/parameter-serializer';
+} from '@utils/parameter-serializer';
 
 describe('parameter-serializer', () => {
   describe('serializeParams', () => {
