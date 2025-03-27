@@ -32,10 +32,12 @@ Subphase 1.2 (SWR Caching) has been fully implemented with all advanced features
 
 ### 3. Request Deduplication (Subphase 1.3)
 
-- [ ] Request key normalization for complex parameters
-- [ ] Configurable deduplication window
-- [ ] Request queue management
-- [ ] Cleanup of stale request references
+- [ ] Request key normalization for complex parameters (URL, method, headers, body)
+- [ ] Configurable deduplication window with time and count-based options
+- [ ] Request tracking and promise sharing mechanisms
+- [ ] Concurrent request management with priority handling
+- [ ] Reference counting and cleanup of stale request references
+- [ ] Performance optimization for high-volume request patterns
 
 ### 4. Error Handling (Subphase 1.4)
 
