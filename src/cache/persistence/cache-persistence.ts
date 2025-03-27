@@ -1,6 +1,9 @@
 // src/cache/persistence/cache-persistence.ts
 
 import { CacheEntry } from '../cache-entry';
+import { serializeEntry, deserializeEntry } from './serialization';
+import { SessionStoragePersistence } from './session-storage-persistence';
+import { IndexedDBPersistence } from './indexed-db-persistence';
 
 /**
  * Interface for cache persistence implementations
@@ -60,7 +63,7 @@ export class LocalStoragePersistence implements CachePersistence {
 
   async set<T>(key: string, entry: CacheEntry<T>): Promise<void> {
     try {
-      const serialized = JSON.stringify(entry);
+      const serialized = serializeEntry(entry);
       if (await this.hasSpace(serialized.length)) {
         localStorage.setItem(this.getKey(key), serialized);
       } else {
@@ -70,7 +73,7 @@ export class LocalStoragePersistence implements CachePersistence {
       if (error instanceof Error && error.name === 'QuotaExceededError') {
         await this.cleanup();
         // Retry once after cleanup
-        const serialized = JSON.stringify(entry);
+        const serialized = serializeEntry(entry);
         if (await this.hasSpace(serialized.length)) {
           localStorage.setItem(this.getKey(key), serialized);
         } else {
@@ -87,7 +90,7 @@ export class LocalStoragePersistence implements CachePersistence {
     if (!serialized) return undefined;
 
     try {
-      const entry = JSON.parse(serialized) as CacheEntry<T>;
+      const entry = deserializeEntry<T>(serialized);
       if (entry.expiresAt <= Date.now()) {
         await this.delete(key);
         return undefined;
@@ -172,7 +175,7 @@ export class MemoryPersistence implements CachePersistence {
   }
 
   async set<T>(key: string, entry: CacheEntry<T>): Promise<void> {
-    const serialized = JSON.stringify(entry);
+    const serialized = serializeEntry(entry);
     if (await this.hasSpace(serialized.length)) {
       this.storage.set(key, serialized);
     } else {
@@ -185,7 +188,7 @@ export class MemoryPersistence implements CachePersistence {
     if (!serialized) return undefined;
 
     try {
-      const entry = JSON.parse(serialized) as CacheEntry<T>;
+      const entry = deserializeEntry<T>(serialized);
       if (entry.expiresAt <= Date.now()) {
         await this.delete(key);
         return undefined;
@@ -224,22 +227,119 @@ export class MemoryPersistence implements CachePersistence {
 }
 
 /**
- * Creates appropriate persistence implementation based on environment
+ * Persistence type options
  */
-export function createPersistence(options?: {
+export type PersistenceType = 'auto' | 'localStorage' | 'sessionStorage' | 'indexedDB' | 'memory';
+
+/**
+ * Persistence factory options
+ */
+export interface PersistenceOptions {
+  type?: PersistenceType;
   prefix?: string;
   maxSize?: number;
-}): CachePersistence {
-  if (typeof localStorage !== 'undefined') {
-    try {
-      // Test localStorage availability
-      localStorage.setItem('test', 'test');
-      localStorage.removeItem('test');
-      return new LocalStoragePersistence(options?.prefix, options?.maxSize);
-    } catch {
-      // Fallback to memory if localStorage is not available
-      return new MemoryPersistence(options?.maxSize);
-    }
+  dbName?: string;
+  storeName?: string;
+  fallbackOrder?: PersistenceType[];
+}
+
+/**
+ * Creates appropriate persistence implementation based on environment and options
+ */
+export function createPersistence(options: PersistenceOptions = {}): CachePersistence {
+  const {
+    type = 'auto',
+    prefix = 'fk_cache:',
+    maxSize = 5 * 1024 * 1024,
+    dbName = 'fetchkit-cache',
+    storeName = 'cache-store',
+    fallbackOrder = ['indexedDB', 'localStorage', 'sessionStorage', 'memory'],
+  } = options;
+
+  // Create a normalized options object with defaults already applied
+  const normalizedOptions = {
+    ...options,
+    prefix,
+    maxSize,
+    dbName,
+    storeName,
+  };
+
+  // If a specific type is requested (not auto), try to create that type
+  if (type !== 'auto') {
+    const persistence = createSpecificPersistence(type, normalizedOptions);
+    if (persistence) return persistence;
   }
-  return new MemoryPersistence(options?.maxSize);
+
+  // For auto or if specific type failed, try persistence types in fallback order
+  for (const fallbackType of fallbackOrder) {
+    const persistence = createSpecificPersistence(fallbackType, normalizedOptions);
+    if (persistence) return persistence;
+  }
+
+  // Ultimate fallback is always memory
+  return new MemoryPersistence(normalizedOptions.maxSize);
+}
+
+/**
+ * Try to create a specific persistence type
+ */
+function createSpecificPersistence(
+  type: PersistenceType,
+  options: PersistenceOptions,
+): CachePersistence | null {
+  // Extract all possible options with their defaults
+  // (each implementation will only use what it needs)
+  const { prefix, maxSize, dbName, storeName } = options;
+
+  switch (type) {
+    case 'localStorage':
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('test', 'test');
+          localStorage.removeItem('test');
+          // LocalStorage only uses prefix and maxSize
+          return new LocalStoragePersistence(prefix, maxSize);
+        } catch {
+          return null;
+        }
+      }
+      return null;
+
+    case 'sessionStorage':
+      if (typeof sessionStorage !== 'undefined') {
+        try {
+          sessionStorage.setItem('test', 'test');
+          sessionStorage.removeItem('test');
+          // SessionStorage only uses prefix and maxSize
+          return new SessionStoragePersistence(prefix, maxSize);
+        } catch {
+          return null;
+        }
+      }
+      return null;
+
+    case 'indexedDB':
+      if (typeof window !== 'undefined' && window.indexedDB) {
+        try {
+          // IndexedDB uses all options: dbName, storeName, maxSize, and prefix
+          return new IndexedDBPersistence({
+            dbName,
+            storeName,
+            maxSize,
+            prefix,
+          });
+        } catch {
+          return null;
+        }
+      }
+      return null;
+
+    case 'memory':
+      // Memory persistence only uses maxSize
+      return new MemoryPersistence(maxSize);
+
+    default:
+      return null;
+  }
 }
