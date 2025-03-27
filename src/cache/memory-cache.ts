@@ -137,11 +137,20 @@ export class MemoryCache {
   set<T>(key: string, entry: CacheEntry<T>): void {
     const now = Date.now();
 
-    // If already exists, update size tracking
+    // If already exists, update size tracking and preserve some metadata
+    let prevAccessCount = 0;
+    let prevRevalidationCount = 0;
     if (this.cache.has(key)) {
+      const oldEntry = this.cache.get(key);
       const oldMetadata = this.metadata.get(key);
       if (oldMetadata) {
         this.currentSize -= oldMetadata.size;
+        prevAccessCount = oldMetadata.accessCount;
+      }
+
+      // Preserve revalidation count if it exists
+      if (oldEntry && oldEntry.revalidationCount !== undefined) {
+        prevRevalidationCount = oldEntry.revalidationCount;
       }
     }
 
@@ -153,12 +162,20 @@ export class MemoryCache {
       this.evict(size);
     }
 
+    // Update entry metadata
+    if (entry.revalidationCount === undefined) {
+      entry.revalidationCount = 0;
+    } else if (entry.revalidationCount !== prevRevalidationCount) {
+      // If revalidation count has increased, update lastRevalidatedAt
+      entry.lastRevalidatedAt = now;
+    }
+
     // Store entry and metadata
     this.cache.set(key, entry);
     this.metadata.set(key, {
       created: now,
       lastAccessed: now, // Use the same timestamp for both to ensure consistency
-      accessCount: 0,
+      accessCount: prevAccessCount, // Preserve previous access count
       size,
     });
 
@@ -198,6 +215,13 @@ export class MemoryCache {
       metadata.lastAccessed = now; // Update with current timestamp
       metadata.accessCount++;
       this.metadata.set(key, metadata);
+
+      // Also update the cache entry's access count
+      if (entry.accessCount !== undefined) {
+        entry.accessCount++;
+      } else {
+        entry.accessCount = 1;
+      }
     }
 
     this.stats.hits++;
@@ -240,6 +264,17 @@ export class MemoryCache {
 
     if (!entry) {
       return false;
+    }
+
+    // Special handling for revalidation state changes
+    if (updates.isRevalidating === false && entry.isRevalidating === true) {
+      // Revalidation just completed
+      updates.lastRevalidatedAt = Date.now();
+      if (entry.revalidationCount !== undefined) {
+        updates.revalidationCount = entry.revalidationCount + 1;
+      } else {
+        updates.revalidationCount = 1;
+      }
     }
 
     const updatedEntry = { ...entry, ...updates };

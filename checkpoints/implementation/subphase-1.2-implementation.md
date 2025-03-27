@@ -75,16 +75,20 @@ This subphase focuses on implementing the Stale-While-Revalidate (SWR) caching p
 - Added cache synchronization to keep data consistent across multiple storage types
 - Implemented performance-optimized persistence with in-memory caching and write batching
 - Updated to use modern ES Module dynamic imports for better code organization
+- Enhanced SWR implementation with retry mechanisms, timeouts, and conditional fetching
+- Added data freshness verification with validator functions
+- Implemented robust error handling with graceful fallback to stale data
+- Extended cache entries with metadata for tracking revalidation history
 
 ### 3. Stale-While-Revalidate Logic
 
 #### Core SWR Implementation
 
-- [ ] Enhance swr() method with robust error handling
-- [ ] Implement conditional fetching strategies
-- [ ] Add data freshness verification
-- [ ] Implement retry mechanisms for failed revalidations
-- [ ] Add timeout handling
+- [x] Enhance swr() method with robust error handling
+- [x] Implement conditional fetching strategies
+- [x] Add data freshness verification
+- [x] Implement retry mechanisms for failed revalidations
+- [x] Add timeout handling
 
 #### Advanced Features
 
@@ -147,6 +151,30 @@ This subphase focuses on implementing the Stale-While-Revalidate (SWR) caching p
 - [ ] Verify cascading behavior
 - [ ] Test invalidation hooks
 - [ ] Validate group invalidation
+
+### 6. Integration with FetchKit Core
+
+#### Core Integration
+
+- [ ] Update CacheManager constructor to accept global cache options
+- [ ] Enhance createFetchKit() to pass global options to CacheManager
+- [ ] Implement proper error propagation from cache operations to FetchKit events
+- [ ] Update cache configuration processing in fetch-kit.ts
+- [ ] Add extended cache configuration options to FetchKitConfig interface
+
+#### Advanced Integration
+
+- [ ] Implement cache-aware request deduplication
+- [ ] Add cache event emission for all cache operations
+- [ ] Create cache operation middleware support
+- [ ] Implement cache prefetching capabilities
+
+#### Testing Requirements
+
+- [ ] Test integrated cache operations through FetchKit API
+- [ ] Verify proper event emission for cache operations
+- [ ] Test cache configuration propagation
+- [ ] Validate error handling in integration points
 
 ## Dependencies
 

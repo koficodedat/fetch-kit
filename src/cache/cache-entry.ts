@@ -1,7 +1,7 @@
 // src/cache/cache-entry.ts
 
 /**
- * Structure for a cache entry with metadata
+ * Structure for a cache entry with enhanced metadata
  */
 export interface CacheEntry<T> {
   /** The cached data */
@@ -14,6 +14,14 @@ export interface CacheEntry<T> {
   expiresAt: number;
   /** Flag indicating if a revalidation is in progress */
   isRevalidating: boolean;
+  /** Number of times this entry has been successfully revalidated */
+  revalidationCount?: number;
+  /** Timestamp of the last successful revalidation */
+  lastRevalidatedAt?: number;
+  /** Any error that occurred during the last revalidation attempt */
+  lastError?: string;
+  /** Number of times the cache entry has been accessed */
+  accessCount?: number;
 }
 
 /**
@@ -36,6 +44,8 @@ export function createCacheEntry<T>(
     staleAt: now + staleTime,
     expiresAt: now + cacheTime,
     isRevalidating: false,
+    revalidationCount: 0,
+    accessCount: 0,
   };
 }
 
