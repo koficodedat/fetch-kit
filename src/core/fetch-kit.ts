@@ -13,6 +13,7 @@ import type {
   ExtendedRequestOptions,
   CacheMethods,
   DeduplicationMethods,
+  AdvancedCacheMethods,
 } from '@fk-types/core-extension';
 import type { FetchKitError, RetryConfig } from '@fk-types/error';
 import { FetchKitEvents, SubscriptionMethods } from '@/types/events';
@@ -43,7 +44,11 @@ export interface BaseFetchKit {
 /**
  * Extended FetchKit interface with cache and deduplication methods
  */
-export type FetchKit = BaseFetchKit & CacheMethods & DeduplicationMethods & SubscriptionMethods;
+export type FetchKit = BaseFetchKit &
+  CacheMethods &
+  AdvancedCacheMethods &
+  DeduplicationMethods &
+  SubscriptionMethods;
 
 /**
  * Creates a new FetchKit instance with the specified configuration
@@ -59,8 +64,8 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
     deduplicate = true,
   } = config;
 
-  // Initialize cache manager
-  const cacheManager = new CacheManager();
+  // Initialize cache manager with global options
+  const cacheManager = new CacheManager(globalCacheOptions);
 
   // Initialize request deduper
   const requestDeduper = new RequestDeduper();
@@ -453,6 +458,79 @@ export function createFetchKit(config: ExtendedFetchKitConfig = {}): FetchKit {
 
     getCacheKey: (url: string, options?: ExtendedRequestOptions): string => {
       return getCacheKey(normalizeUrl(url), options);
+    },
+
+    // Advanced cache management methods
+    registerCacheWarming: <T>(url: string, options?: ExtendedRequestOptions): void => {
+      const cacheKey = getCacheKey(normalizeUrl(url), options);
+      const fetchFn = () =>
+        executeRequest<T>(normalizeUrl(url), {
+          ...options,
+          method: options?.method || 'GET',
+          headers: { ...defaultHeaders, ...options?.headers },
+        });
+
+      cacheManager.registerCacheWarming(
+        cacheKey,
+        fetchFn,
+        processCacheOptions(options?.cacheOptions),
+      );
+      emitter.emit('cache:warm:register', { key: cacheKey });
+    },
+
+    unregisterCacheWarming: (url: string, options?: ExtendedRequestOptions): void => {
+      const cacheKey = getCacheKey(normalizeUrl(url), options);
+      cacheManager.unregisterCacheWarming(cacheKey);
+      emitter.emit('cache:warm:unregister', { key: cacheKey });
+    },
+
+    getWarmedCacheKeys: (): string[] => {
+      return cacheManager.getWarmedCacheKeys();
+    },
+
+    revalidateCache: <T>(url: string, options?: ExtendedRequestOptions): Promise<void> => {
+      const cacheKey = getCacheKey(normalizeUrl(url), options);
+      const fetchFn = () =>
+        executeRequest<T>(normalizeUrl(url), {
+          ...options,
+          method: options?.method || 'GET',
+          headers: { ...defaultHeaders, ...options?.headers },
+        });
+
+      return cacheManager.revalidate(cacheKey, fetchFn, processCacheOptions(options?.cacheOptions));
+    },
+
+    getCacheEntry: <T>(
+      url: string,
+      options?: ExtendedRequestOptions,
+    ): { data: T; metadata: any } | undefined => {
+      const cacheKey = getCacheKey(normalizeUrl(url), options);
+      const entry = cacheManager.getEntry<T>(cacheKey);
+      if (!entry) return undefined;
+
+      return {
+        data: entry.data,
+        metadata: {
+          createdAt: entry.createdAt,
+          staleAt: entry.staleAt,
+          expiresAt: entry.expiresAt,
+          isRevalidating: entry.isRevalidating,
+          revalidationCount: entry.revalidationCount,
+          lastRevalidatedAt: entry.lastRevalidatedAt,
+          accessCount: entry.accessCount,
+        },
+      };
+    },
+
+    isCacheStale: (url: string, options?: ExtendedRequestOptions): boolean => {
+      const cacheKey = getCacheKey(normalizeUrl(url), options);
+      return cacheManager.isStale(cacheKey);
+    },
+
+    setCacheData: <T>(url: string, data: T, options?: ExtendedRequestOptions): void => {
+      const cacheKey = getCacheKey(normalizeUrl(url), options);
+      cacheManager.set(cacheKey, data, processCacheOptions(options?.cacheOptions));
+      emitter.emit('cache:set', { key: cacheKey, data });
     },
 
     // Deduplication management methods

@@ -11,6 +11,9 @@ A frontend-agnostic, vanilla JavaScript-first library for fetching, updating, an
 - **🔁 Retries**: Automatic retries with configurable backoff strategies
 - **🔍 Type Safety**: First-class TypeScript support with proper generics
 - **❌ Error Handling**: Comprehensive error categorization and messages
+- **📦 Advanced Caching**: SWR caching with multiple eviction policies (LRU, LFU, TTL, FIFO)
+- **🚀 Cache Warming**: Proactive data caching with configurable intervals
+- **🔄 Smart Revalidation**: Throttling and debouncing for optimized refreshes
 
 ## Installation
 

@@ -197,25 +197,58 @@ All related testing requirements have also been completed.
 
 #### Core Integration
 
-- [ ] Update CacheManager constructor to accept global cache options
-- [ ] Enhance createFetchKit() to pass global options to CacheManager
-- [ ] Implement proper error propagation from cache operations to FetchKit events
-- [ ] Update cache configuration processing in fetch-kit.ts
-- [ ] Add extended cache configuration options to FetchKitConfig interface
+- [x] Update CacheManager constructor to accept global cache options
+- [x] Enhance createFetchKit() to pass global options to CacheManager
+- [x] Implement proper error propagation from cache operations to FetchKit events
+- [x] Update cache configuration processing in fetch-kit.ts
+- [x] Add extended cache configuration options to FetchKitConfig interface
 
 #### Advanced Integration
 
-- [ ] Implement cache-aware request deduplication
-- [ ] Add cache event emission for all cache operations
-- [ ] Create cache operation middleware support
-- [ ] Implement cache prefetching capabilities
+- [x] Implement cache-aware request deduplication
+- [x] Add cache event emission for all cache operations
+- [x] Create cache operation middleware support
+- [x] Implement cache prefetching capabilities through cache warming
 
 #### Testing Requirements
 
-- [ ] Test integrated cache operations through FetchKit API
-- [ ] Verify proper event emission for cache operations
-- [ ] Test cache configuration propagation
-- [ ] Validate error handling in integration points
+- [x] Test integrated cache operations through FetchKit API
+- [x] Verify proper event emission for cache operations
+- [x] Test cache configuration propagation
+- [x] Validate error handling in integration points
+
+### 7. Advanced Features Implementation
+
+#### Cache Warming
+
+- [x] Implement API to register cache keys for warming with configurable intervals
+- [x] Add automatic refreshing of cached data at regular intervals
+- [x] Handle errors during cache warming operations
+- [x] Implement cleanup of warming resources
+
+#### Advanced Revalidation
+
+- [x] Implement revalidation throttling to limit frequency of cache refreshes
+- [x] Add revalidation debouncing for rapidly changing resources
+- [x] Create public API for manual revalidation
+- [x] Handle errors during revalidation
+
+#### Size Limits and Eviction Policies
+
+- [x] Implement LRU (Least Recently Used) eviction policy
+- [x] Implement LFU (Least Frequently Used) eviction policy
+- [x] Implement TTL (Time To Live) eviction policy
+- [x] Implement FIFO (First In First Out) eviction policy
+- [x] Add configurable size limits by entry count and bytes
+- [x] Implement accurate size estimation for different data types
+
+#### Testing Coverage
+
+- [x] Test cache size limits enforcement
+- [x] Verify eviction policy behaviors
+- [x] Test cache warming functionality
+- [x] Validate advanced revalidation features
+- [x] Fix test failures and improve test reliability
 
 ## Dependencies
 

@@ -21,6 +21,22 @@ export interface FetchKitEvents {
   'cache:set': { key: string; data: any };
   'cache:invalidate': { key: string | null };
 
+  // Cache warming events
+  'cache:warm:register': { key: string };
+  'cache:warm:unregister': { key: string };
+  'cache:warm:refresh': { key: string; success: boolean; error?: Error };
+
+  // Revalidation events
+  'cache:revalidate:start': { key: string; priority?: number };
+  'cache:revalidate:success': { key: string; data: any };
+  'cache:revalidate:error': { key: string; error: Error; attempt: number };
+  'cache:revalidate:throttled': { key: string; nextAttemptTime: number };
+  'cache:revalidate:debounced': { key: string; delayTime: number };
+
+  // Eviction events
+  'cache:evict': { key: string; reason: 'size_limit' | 'count_limit' | 'ttl' | 'manual' };
+  'cache:stats': { size: number; count: number; hits: number; misses: number; hitRatio: number };
+
   // Global events
   error: Error;
   debug: { message: string; data?: any };

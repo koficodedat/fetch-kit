@@ -36,6 +36,21 @@ export interface FetchKitConfigExtension {
    * Whether to deduplicate identical in-flight requests by default
    */
   deduplicate?: boolean;
+
+  /**
+   * Maximum number of items in cache (for count-based eviction)
+   */
+  maxItems?: number;
+
+  /**
+   * Maximum cache size in bytes (for size-based eviction)
+   */
+  maxSize?: number;
+
+  /**
+   * Cleanup interval in milliseconds (default: 60000)
+   */
+  cleanupInterval?: number;
 }
 
 /**
@@ -44,7 +59,7 @@ export interface FetchKitConfigExtension {
 export type ExtendedFetchKitConfig = BaseFetchKitConfig & FetchKitConfigExtension;
 
 /**
- * Cache-related methods for FetchKit
+ * Basic cache-related methods for FetchKit
  */
 export interface CacheMethods {
   /**
@@ -61,6 +76,50 @@ export interface CacheMethods {
    * Get the cache key for a request
    */
   getCacheKey: (url: string, options?: ExtendedRequestOptions) => string;
+}
+
+/**
+ * Advanced cache-related methods for FetchKit's SWR implementation
+ */
+export interface AdvancedCacheMethods {
+  /**
+   * Register a URL for cache warming (proactive refreshing)
+   * The URL will be automatically refreshed at specified intervals
+   */
+  registerCacheWarming: (url: string, options?: ExtendedRequestOptions) => void;
+
+  /**
+   * Unregister a URL from cache warming
+   */
+  unregisterCacheWarming: (url: string, options?: ExtendedRequestOptions) => void;
+
+  /**
+   * Get all cache keys that are currently being warmed
+   */
+  getWarmedCacheKeys: () => string[];
+
+  /**
+   * Manually revalidate a cached URL
+   */
+  revalidateCache: (url: string, options?: ExtendedRequestOptions) => Promise<void>;
+
+  /**
+   * Get the full cache entry including metadata for a URL
+   */
+  getCacheEntry: (
+    url: string,
+    options?: ExtendedRequestOptions,
+  ) => { data: any; metadata: any } | undefined;
+
+  /**
+   * Check if a cached URL is stale
+   */
+  isCacheStale: (url: string, options?: ExtendedRequestOptions) => boolean;
+
+  /**
+   * Manually set data in the cache for a URL
+   */
+  setCacheData: (url: string, data: any, options?: ExtendedRequestOptions) => void;
 }
 
 /**

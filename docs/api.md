@@ -3,21 +3,32 @@
 ## Table of Contents
 
 1. [Core API](#core-api)
+
    - [createFetchKit](#createfetchkit)
    - [HTTP Methods](#http-methods)
    - [Request Cancellation](#request-cancellation)
-   
+
 2. [Adapter System](#adapter-system)
+
    - [Using Built-in Adapters](#using-built-in-adapters)
    - [Switching Adapters](#switching-adapters)
    - [Creating Custom Adapters](#creating-custom-adapters)
 
-3. [Error Handling](#error-handling)
+3. [Advanced Caching](#advanced-caching)
+
+   - [SWR Caching Configuration](#swr-caching-configuration)
+   - [Cache Invalidation](#cache-invalidation)
+   - [Cache Warming](#cache-warming)
+   - [Eviction Policies](#eviction-policies)
+   - [Advanced Revalidation](#advanced-revalidation)
+
+4. [Error Handling](#error-handling)
+
    - [Error Categories](#error-categories)
    - [Handling Different Error Types](#handling-different-error-types)
    - [Retry Configuration](#retry-configuration)
 
-4. [TypeScript Support](#typescript-support)
+5. [TypeScript Support](#typescript-support)
    - [Request/Response Types](#requestresponse-types)
    - [Error Types](#error-types)
    - [Configuration Types](#configuration-types)
@@ -37,25 +48,25 @@ const fk = createFetchKit({
   baseUrl: 'https://api.example.com',
   defaultHeaders: {
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer token123'
+    Authorization: 'Bearer token123',
   },
   timeout: 5000,
   retry: {
     count: 3,
-    backoff: 'exponential'
-  }
+    backoff: 'exponential',
+  },
 });
 ```
 
 #### Configuration Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `baseUrl` | `string` | Base URL prepended to all request URLs |
+| Option           | Type                     | Description                                 |
+| ---------------- | ------------------------ | ------------------------------------------- |
+| `baseUrl`        | `string`                 | Base URL prepended to all request URLs      |
 | `defaultHeaders` | `Record<string, string>` | Default headers included with every request |
-| `timeout` | `number` | Default timeout in milliseconds |
-| `retry` | `RetryConfig` | Default retry configuration |
-| `adapter` | `Adapter` | Custom adapter to use for requests |
+| `timeout`        | `number`                 | Default timeout in milliseconds             |
+| `retry`          | `RetryConfig`            | Default retry configuration                 |
+| `adapter`        | `Adapter`                | Custom adapter to use for requests          |
 
 ### HTTP Methods
 
@@ -68,12 +79,12 @@ const users = await fk.get('/users');
 // POST request with body
 const newUser = await fk.post('/users', {
   name: 'John Doe',
-  email: 'john@example.com'
+  email: 'john@example.com',
 });
 
 // PUT request with body
 await fk.put('/users/123', {
-  name: 'John Updated'
+  name: 'John Updated',
 });
 
 // DELETE request
@@ -81,7 +92,7 @@ await fk.delete('/users/123');
 
 // PATCH request with body
 await fk.patch('/users/123', {
-  status: 'inactive'
+  status: 'inactive',
 });
 ```
 
@@ -96,20 +107,20 @@ const users = await fk.get('/users', {
   params: { limit: 10, offset: 20 },
   timeout: 3000,
   signal: abortController.signal,
-  retry: { count: 2 }
+  retry: { count: 2 },
 });
 ```
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `method` | `string` | HTTP method (automatically set by convenience methods) |
-| `headers` | `Record<string, string>` | Headers to include with this request |
-| `body` | `any` | Request body (automatically set by POST/PUT/PATCH methods) |
-| `params` | `Record<string, any>` | Query parameters to append to URL |
-| `timeout` | `number` | Request timeout in milliseconds |
-| `signal` | `AbortSignal` | AbortSignal for cancellation |
-| `responseType` | `string` | Expected response type ('json', 'text', etc.) |
-| `retry` | `RetryConfig \| boolean` | Retry configuration for this request |
+| Option         | Type                     | Description                                                |
+| -------------- | ------------------------ | ---------------------------------------------------------- |
+| `method`       | `string`                 | HTTP method (automatically set by convenience methods)     |
+| `headers`      | `Record<string, string>` | Headers to include with this request                       |
+| `body`         | `any`                    | Request body (automatically set by POST/PUT/PATCH methods) |
+| `params`       | `Record<string, any>`    | Query parameters to append to URL                          |
+| `timeout`      | `number`                 | Request timeout in milliseconds                            |
+| `signal`       | `AbortSignal`            | AbortSignal for cancellation                               |
+| `responseType` | `string`                 | Expected response type ('json', 'text', etc.)              |
+| `retry`        | `RetryConfig \| boolean` | Retry configuration for this request                       |
 
 ### Request Cancellation
 
@@ -180,7 +191,7 @@ import { createFetchKit, Adapter } from 'fetchkit';
 // Example adapter using a hypothetical HTTP client
 const myCustomAdapter: Adapter = {
   name: 'custom-client',
-  
+
   // Make a request using your client
   async request(request) {
     const response = await customClient.request({
@@ -188,16 +199,16 @@ const myCustomAdapter: Adapter = {
       method: request.method,
       // Map other options...
     });
-    
+
     return {
       data: response.data,
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
-      originalResponse: response
+      originalResponse: response,
     };
   },
-  
+
   // Transform FetchKit options to your client's format
   transformRequest(url, options) {
     return {
@@ -208,7 +219,7 @@ const myCustomAdapter: Adapter = {
       // Map other options...
     };
   },
-  
+
   // Transform your client's response to FetchKit format
   transformResponse(response) {
     return {
@@ -216,15 +227,141 @@ const myCustomAdapter: Adapter = {
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
-      originalResponse: response
+      originalResponse: response,
     };
-  }
+  },
 };
 
 // Use your custom adapter
 const fk = createFetchKit({
-  adapter: myCustomAdapter
+  adapter: myCustomAdapter,
 });
+```
+
+## Advanced Caching
+
+FetchKit provides a powerful stale-while-revalidate (SWR) caching system with advanced features for efficient data fetching.
+
+### SWR Caching Configuration
+
+Configure caching behavior globally or per-request:
+
+```typescript
+// Global cache configuration
+const fk = createFetchKit({
+  cacheOptions: {
+    staleTime: 60000, // Data becomes stale after 1 minute
+    cacheTime: 300000, // Remove from cache after 5 minutes
+    revalidate: true, // Auto-revalidate stale data
+    evictionPolicy: 'lru', // Use LRU eviction policy
+    maxEntries: 100, // Maximum cache entries
+    maxBytes: 5 * 1024 * 1024, // Cache size limit (5MB)
+    revalidationRetryCount: 3, // Retry failed re-validations
+  },
+});
+
+// Per-request configuration
+const users = await fk.get('/users', {
+  cacheOptions: {
+    staleTime: 30000,
+    cacheTime: 120000,
+    revalidate: true,
+  },
+});
+
+// Disable caching for a request
+const freshData = await fk.get('/users', {
+  cacheOptions: false,
+});
+```
+
+### Cache Invalidation
+
+Manually control cache entries:
+
+```typescript
+// Get cache key for a specific URL
+const cacheKey = fk.getCacheKey('/users');
+
+// Invalidate a specific cache entry
+fk.invalidateCache(cacheKey);
+
+// Invalidate all cache entries
+fk.invalidateCache();
+
+// Invalidate cache entries by pattern
+fk.invalidateCacheMatching(key => key.includes('/users'));
+
+// Check if cache is stale
+const isStale = fk.isCacheStale(cacheKey);
+
+// Manually set cache data
+fk.setCacheData(cacheKey, { users: [...] });
+```
+
+### Cache Warming
+
+Proactively warm cache data before it's needed:
+
+```typescript
+// Register URL for cache warming with 5-minute interval
+fk.registerCacheWarming('/popular-data', {
+  warmingInterval: 300000, // Refresh every 5 minutes
+  warmingOptions: {
+    staleTime: 60000,
+    cacheTime: 600000,
+  },
+});
+
+// Unregister from cache warming
+fk.unregisterCacheWarming('/popular-data');
+
+// Get all warmed cache keys
+const warmedKeys = fk.getWarmedCacheKeys();
+```
+
+### Eviction Policies
+
+FetchKit supports multiple eviction policies to manage cache size:
+
+| Policy | Description                                                             |
+| ------ | ----------------------------------------------------------------------- |
+| `lru`  | Least Recently Used - Removes least recently accessed entries first     |
+| `lfu`  | Least Frequently Used - Removes least frequently accessed entries first |
+| `ttl`  | Time To Live - Removes oldest entries first based on creation time      |
+| `fifo` | First In First Out - Removes entries in the order they were added       |
+
+```typescript
+const fk = createFetchKit({
+  cacheOptions: {
+    evictionPolicy: 'lfu', // Use Least Frequently Used policy
+    maxEntries: 50, // Maximum number of cache entries
+    maxBytes: 2 * 1024 * 1024, // Maximum cache size (2MB)
+  },
+});
+```
+
+### Advanced Revalidation
+
+Control how and when cached data is revalidated:
+
+```typescript
+// Throttle re-validations (limit frequency)
+const data = await fk.get('/frequently-accessed', {
+  cacheOptions: {
+    throttleTime: 5000, // Only revalidate every 5 seconds max
+  },
+});
+
+// Debounce re-validations (delay until activity stops)
+const userData = await fk.get('/user-profile', {
+  cacheOptions: {
+    debounceTime: 1000, // Wait for 1 second of inactivity before re-validating
+  },
+});
+
+// Manually revalidate cache
+await fk.revalidateCache('/api/data');
 ```
 
 ## Error Handling
@@ -235,15 +372,15 @@ FetchKit provides a comprehensive error handling system with categorization and 
 
 Errors are automatically categorized for easier handling:
 
-| Category | Description | Status Codes |
-|----------|-------------|--------------|
-| `Client` | Client-side errors | 400-499 |
-| `Server` | Server-side errors | 500-599 |
-| `Timeout` | Request timeout errors | Usually 408 |
-| `Network` | Network connectivity errors | N/A |
-| `Cancel` | Cancelled requests | N/A |
-| `Parse` | Response parsing errors | N/A |
-| `Unknown` | Unrecognized errors | N/A |
+| Category  | Description                 | Status Codes |
+| --------- | --------------------------- | ------------ |
+| `Client`  | Client-side errors          | 400-499      |
+| `Server`  | Server-side errors          | 500-599      |
+| `Timeout` | Request timeout errors      | Usually 408  |
+| `Network` | Network connectivity errors | N/A          |
+| `Cancel`  | Cancelled requests          | N/A          |
+| `Parse`   | Response parsing errors     | N/A          |
+| `Unknown` | Unrecognized errors         | N/A          |
 
 ### Handling Different Error Types
 
@@ -263,26 +400,26 @@ try {
         console.error('Client error:', error.message);
       }
       break;
-      
+
     case ErrorCategory.Server:
       console.error('Server error:', error.message);
       // Maybe show a "try again later" message
       break;
-      
+
     case ErrorCategory.Timeout:
       console.error('Request timed out');
       // Maybe offer to retry
       break;
-      
+
     case ErrorCategory.Network:
       console.error('Network error');
       // Maybe check connectivity
       break;
-      
+
     case ErrorCategory.Cancel:
       console.log('Request was cancelled');
       break;
-      
+
     default:
       console.error('Unknown error:', error.message);
   }
@@ -301,8 +438,8 @@ const fk = createFetchKit({
     delay: 1000,
     backoff: 'exponential',
     factor: 2,
-    maxDelay: 30000
-  }
+    maxDelay: 30000,
+  },
 });
 
 // Per-request retry configuration
@@ -312,28 +449,27 @@ const data = await fk.get('/api/data', {
     backoff: 'linear',
     shouldRetry: (error, attempt) => {
       // Only retry server errors and network errors
-      return error.category === ErrorCategory.Server ||
-             error.category === ErrorCategory.Network;
-    }
-  }
+      return error.category === ErrorCategory.Server || error.category === ErrorCategory.Network;
+    },
+  },
 });
 
 // Disable retry for a specific request
 const data = await fk.get('/api/data', {
-  retry: false
+  retry: false,
 });
 ```
 
 #### Retry Configuration Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `count` | `number` | Maximum number of retry attempts |
-| `delay` | `number` | Delay between retries in milliseconds |
-| `backoff` | `'fixed' \| 'linear' \| 'exponential'` | Backoff strategy for increasing delay |
-| `factor` | `number` | Factor to multiply delay by for each retry (used in exponential backoff) |
-| `maxDelay` | `number` | Maximum delay between retries in milliseconds |
-| `shouldRetry` | `function` | Function to determine if a request should be retried |
+| Option        | Type                                   | Description                                                              |
+| ------------- | -------------------------------------- | ------------------------------------------------------------------------ |
+| `count`       | `number`                               | Maximum number of retry attempts                                         |
+| `delay`       | `number`                               | Delay between retries in milliseconds                                    |
+| `backoff`     | `'fixed' \| 'linear' \| 'exponential'` | Backoff strategy for increasing delay                                    |
+| `factor`      | `number`                               | Factor to multiply delay by for each retry (used in exponential backoff) |
+| `maxDelay`    | `number`                               | Maximum delay between retries in milliseconds                            |
+| `shouldRetry` | `function`                             | Function to determine if a request should be retried                     |
 
 ## TypeScript Support
 
@@ -368,10 +504,10 @@ interface CreateUserResponse {
   token: string;
 }
 
-const result = await fk.post<CreateUserResponse, CreateUserRequest>(
-  '/users',
-  { name: 'John Doe', email: 'john@example.com' }
-);
+const result = await fk.post<CreateUserResponse, CreateUserRequest>('/users', {
+  name: 'John Doe',
+  email: 'john@example.com',
+});
 
 console.log(result.user.id);
 console.log(result.token);
@@ -388,12 +524,12 @@ try {
   await fk.get('/users');
 } catch (error) {
   const fetchError = error as FetchKitError;
-  
+
   console.log(fetchError.category); // ErrorCategory
-  console.log(fetchError.status);   // HTTP status code
-  console.log(fetchError.url);      // Request URL
-  console.log(fetchError.method);   // Request method
-  console.log(fetchError.data);     // Error response data
+  console.log(fetchError.status); // HTTP status code
+  console.log(fetchError.url); // Request URL
+  console.log(fetchError.method); // Request method
+  console.log(fetchError.data); // Error response data
 }
 ```
 
@@ -402,26 +538,22 @@ try {
 Configuration objects are also fully typed:
 
 ```typescript
-import { 
-  FetchKitConfig, 
-  RequestOptions, 
-  RetryConfig 
-} from 'fetchkit';
+import { FetchKitConfig, RequestOptions, RetryConfig } from 'fetchkit';
 
 const config: FetchKitConfig = {
   baseUrl: 'https://api.example.com',
-  timeout: 5000
+  timeout: 5000,
 };
 
 const options: RequestOptions = {
   headers: { 'X-Custom-Header': 'value' },
   timeout: 3000,
-  retry: true
+  retry: true,
 };
 
 const retryConfig: RetryConfig = {
   count: 3,
   delay: 1000,
-  backoff: 'exponential'
+  backoff: 'exponential',
 };
 ```

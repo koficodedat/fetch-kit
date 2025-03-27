@@ -217,7 +217,13 @@ describe('FetchKit Deduplication', () => {
   });
 
   it('should work with both caching and deduplication', async () => {
-    const fk = createFetchKit();
+    const fk = createFetchKit({
+      cacheOptions: {
+        // Explicitly disable background revalidation for this test
+        revalidate: false,
+        staleTime: 60000, // 1 minute stale time
+      },
+    });
 
     // Mock successful response
     vi.mocked(fetchModule.fetch).mockResolvedValueOnce({ data: 'test' });

@@ -600,6 +600,20 @@ export class CacheManager {
   }
 
   /**
+   * Manually trigger revalidation for a specific cache key
+   * @param cacheKey The key to revalidate
+   * @param fetchFn The function to fetch the fresh data
+   * @param options Optional cache options
+   */
+  async revalidate<T>(
+    cacheKey: string,
+    fetchFn: () => Promise<T>,
+    options?: CacheOptions,
+  ): Promise<void> {
+    return this.revalidateData(cacheKey, fetchFn, options);
+  }
+
+  /**
    * Implements the SWR (Stale-While-Revalidate) pattern with enhanced features
    *
    * 1. If there's cached data that's not stale, return it
