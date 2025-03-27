@@ -286,7 +286,7 @@ describe('Cache Manager', () => {
       expect(result).toBe('data-1'); // Should return cached data despite error
     });
 
-    it('retries failed revalidations with exponential backoff', async () => {
+    it('retries failed re-validations with exponential backoff', async () => {
       const key = 'retry-test-key';
 
       // First successful request

@@ -8,24 +8,27 @@ This subphase focuses on implementing the complete Stale-While-Revalidate (SWR) 
 
 ### 1. Complete SWR Logic
 
-- [ ] Implement stale data detection
-- [ ] Add revalidation triggers
-- [ ] Handle concurrent revalidation requests
+- [x] Implement stale data detection
+- [x] Add revalidation triggers
+- [x] Handle concurrent revalidation requests
 - [x] Add cache hit/miss tracking
 
 ### 2. Background Revalidation
 
-- [ ] Implement background data fetching
-- [ ] Add revalidation queuing
-- [ ] Handle failed revalidation attempts
-- [ ] Add retry mechanisms
+- [x] Implement background data fetching
+- [x] Add revalidation queuing
+- [x] Handle failed revalidation attempts
+- [x] Add retry mechanisms
 
 ### 3. Cache Invalidation
 
-- [ ] Implement manual invalidation
-- [ ] Add automatic invalidation rules
-- [ ] Handle dependent cache invalidation
-- [ ] Add invalidation events
+- [x] Implement manual invalidation
+- [x] Add automatic invalidation rules
+- [x] Handle dependent cache invalidation
+- [x] Add invalidation events
+- [x] Implement pattern-based invalidation
+- [x] Enhance URL-based invalidation with resource detection
+- [x] Support cascading invalidation for related resources
 
 ### 4. Cache Persistence
 
