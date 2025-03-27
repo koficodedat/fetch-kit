@@ -229,7 +229,14 @@ export class MemoryPersistence implements CachePersistence {
 /**
  * Persistence type options
  */
-export type PersistenceType = 'auto' | 'localStorage' | 'sessionStorage' | 'indexedDB' | 'memory';
+export type PersistenceType =
+  | 'auto'
+  | 'localStorage'
+  | 'sessionStorage'
+  | 'indexedDB'
+  | 'memory'
+  | 'fallback'
+  | 'performance';
 
 /**
  * Persistence factory options
@@ -241,12 +248,29 @@ export interface PersistenceOptions {
   dbName?: string;
   storeName?: string;
   fallbackOrder?: PersistenceType[];
+
+  // Fallback persistence options
+  fallbackPersistences?: CachePersistence[];
+
+  // Performance optimization options
+  memoryCacheSize?: number;
+  preloadFrequentItems?: boolean;
+  preloadLimit?: number;
+  writeDelay?: number;
+  maxPendingWrites?: number;
+
+  // Sync options
+  enableSync?: boolean;
+  syncInterval?: number;
+  syncOnStart?: boolean;
 }
 
 /**
  * Creates appropriate persistence implementation based on environment and options
  */
-export function createPersistence(options: PersistenceOptions = {}): CachePersistence {
+export async function createPersistence(
+  options: PersistenceOptions = {},
+): Promise<CachePersistence> {
   const {
     type = 'auto',
     prefix = 'fk_cache:',
@@ -254,6 +278,14 @@ export function createPersistence(options: PersistenceOptions = {}): CachePersis
     dbName = 'fetchkit-cache',
     storeName = 'cache-store',
     fallbackOrder = ['indexedDB', 'localStorage', 'sessionStorage', 'memory'],
+    enableSync = false,
+    syncInterval = 30000,
+    syncOnStart = true,
+    memoryCacheSize = 100,
+    preloadFrequentItems = true,
+    preloadLimit = 20,
+    writeDelay = 200,
+    maxPendingWrites = 50,
   } = options;
 
   // Create a normalized options object with defaults already applied
@@ -263,17 +295,25 @@ export function createPersistence(options: PersistenceOptions = {}): CachePersis
     maxSize,
     dbName,
     storeName,
+    memoryCacheSize,
+    preloadFrequentItems,
+    preloadLimit,
+    writeDelay,
+    maxPendingWrites,
+    enableSync,
+    syncInterval,
+    syncOnStart,
   };
 
   // If a specific type is requested (not auto), try to create that type
   if (type !== 'auto') {
-    const persistence = createSpecificPersistence(type, normalizedOptions);
+    const persistence = await createSpecificPersistence(type, normalizedOptions);
     if (persistence) return persistence;
   }
 
   // For auto or if specific type failed, try persistence types in fallback order
   for (const fallbackType of fallbackOrder) {
-    const persistence = createSpecificPersistence(fallbackType, normalizedOptions);
+    const persistence = await createSpecificPersistence(fallbackType, normalizedOptions);
     if (persistence) return persistence;
   }
 
@@ -284,13 +324,60 @@ export function createPersistence(options: PersistenceOptions = {}): CachePersis
 /**
  * Try to create a specific persistence type
  */
-function createSpecificPersistence(
+async function createSpecificPersistence(
   type: PersistenceType,
   options: PersistenceOptions,
-): CachePersistence | null {
+): Promise<CachePersistence | null> {
   // Extract all possible options with their defaults
   // (each implementation will only use what it needs)
-  const { prefix, maxSize, dbName, storeName } = options;
+  const {
+    prefix,
+    maxSize,
+    dbName,
+    storeName,
+    fallbackOrder = ['indexedDB', 'localStorage', 'sessionStorage', 'memory'],
+    fallbackPersistences,
+    memoryCacheSize,
+    preloadFrequentItems,
+    preloadLimit,
+    writeDelay,
+    maxPendingWrites,
+    enableSync,
+    syncInterval,
+    syncOnStart,
+  } = options;
+
+  // Use dynamic imports to avoid circular dependencies
+  // We have to use a workaround because TypeScript doesn't allow top-level await
+  // and we can't directly use the dynamic imports in a synchronous function
+  let FallbackPersistence: any = null;
+  let PerformanceOptimizedPersistence: any = null;
+  let CacheSynchronizer: any = null;
+
+  // We'll load these lazily when needed
+  const loadFallbackPersistence = async () => {
+    if (!FallbackPersistence) {
+      const module = await import('./fallback-persistence');
+      FallbackPersistence = module.FallbackPersistence;
+    }
+    return FallbackPersistence;
+  };
+
+  const loadPerformanceOptimizedPersistence = async () => {
+    if (!PerformanceOptimizedPersistence) {
+      const module = await import('./performance-optimized-persistence');
+      PerformanceOptimizedPersistence = module.PerformanceOptimizedPersistence;
+    }
+    return PerformanceOptimizedPersistence;
+  };
+
+  const loadCacheSynchronizer = async () => {
+    if (!CacheSynchronizer) {
+      const module = await import('./cache-synchronizer');
+      CacheSynchronizer = module.CacheSynchronizer;
+    }
+    return CacheSynchronizer;
+  };
 
   switch (type) {
     case 'localStorage':
@@ -339,7 +426,124 @@ function createSpecificPersistence(
       // Memory persistence only uses maxSize
       return new MemoryPersistence(maxSize);
 
+    case 'fallback':
+      try {
+        // Dynamically load the FallbackPersistence class
+        const FallbackPersistenceClass = await loadFallbackPersistence();
+
+        // Create a fallback persistence chain
+        if (fallbackPersistences && fallbackPersistences.length > 0) {
+          // Use explicit persistence instances if provided
+          return new FallbackPersistenceClass(fallbackPersistences);
+        } else {
+          // Create persistence chain based on fallback order
+          const persistenceChain: CachePersistence[] = [];
+          for (const fbType of fallbackOrder) {
+            // Skip fallback to avoid infinite recursion
+            if (fbType === 'fallback' || fbType === 'auto') continue;
+
+            const persistence = await createSpecificPersistence(fbType, options);
+            if (persistence) {
+              persistenceChain.push(persistence);
+            }
+          }
+
+          if (persistenceChain.length > 0) {
+            return new FallbackPersistenceClass(persistenceChain);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load FallbackPersistence:', error);
+      }
+      return null;
+
+    case 'performance':
+      try {
+        // Create a performance-optimized wrapper around another persistence
+        let basePersistence: CachePersistence | null = null;
+
+        // Use the first available persistence from fallback order
+        for (const fbType of fallbackOrder) {
+          // Skip performance to avoid infinite recursion
+          if (fbType === 'performance' || fbType === 'auto') continue;
+
+          basePersistence = await createSpecificPersistence(fbType, options);
+          if (basePersistence) break;
+        }
+
+        if (basePersistence) {
+          // Dynamically load the PerformanceOptimizedPersistence class
+          const PerformanceOptimizedPersistenceClass = await loadPerformanceOptimizedPersistence();
+
+          // Use synced persistence if enableSync is true
+          if (enableSync && basePersistence) {
+            // Find a secondary persistence for sync
+            let secondaryPersistence: CachePersistence | null = null;
+
+            // Try to find a different persistence type for secondary
+            for (const fbType of fallbackOrder) {
+              if (fbType === 'performance' || fbType === 'auto' || fbType === 'fallback') continue;
+
+              // Skip the type we already used for basePersistence
+              const baseType = getTypeFromPersistence(basePersistence);
+              if (fbType === baseType) continue;
+
+              secondaryPersistence = await createSpecificPersistence(fbType, options);
+              if (secondaryPersistence) break;
+            }
+
+            // If we found a secondary persistence, create a synchronizer
+            if (secondaryPersistence) {
+              const CacheSynchronizerClass = await loadCacheSynchronizer();
+              new CacheSynchronizerClass(basePersistence, secondaryPersistence, {
+                syncInterval,
+                syncOnStart,
+              });
+
+              // Log that synchronization is enabled
+              console.log('Cache synchronization enabled between persistence types');
+            }
+          }
+
+          return new PerformanceOptimizedPersistenceClass({
+            persistence: basePersistence,
+            memoryCacheSize,
+            preloadFrequentItems,
+            preloadLimit,
+            writeDelay,
+            maxPendingWrites,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load PerformanceOptimizedPersistence:', error);
+      }
+      return null;
+
     default:
       return null;
+  }
+}
+
+/**
+ * Helper function to determine the persistence type from a persistence instance
+ */
+function getTypeFromPersistence(persistence: CachePersistence): PersistenceType {
+  if (persistence instanceof LocalStoragePersistence) {
+    return 'localStorage';
+  } else if (persistence instanceof SessionStoragePersistence) {
+    return 'sessionStorage';
+  } else if (persistence instanceof IndexedDBPersistence) {
+    return 'indexedDB';
+  } else if (persistence instanceof MemoryPersistence) {
+    return 'memory';
+  } else {
+    // For other types, check constructor name as fallback
+    const constructorName = persistence.constructor.name;
+    if (constructorName.includes('Fallback')) {
+      return 'fallback';
+    } else if (constructorName.includes('Performance')) {
+      return 'performance';
+    }
+    return 'memory'; // Default fallback
   }
 }

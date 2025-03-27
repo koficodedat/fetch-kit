@@ -151,40 +151,40 @@ describe('Cache Persistence', () => {
       global.window = originalWindow;
     });
 
-    it('should create LocalStoragePersistence when requested', () => {
+    it('should create LocalStoragePersistence when requested', async () => {
       global.localStorage = mockLocalStorage as any;
-      const persistence = createPersistence({ type: 'localStorage' });
+      const persistence = await createPersistence({ type: 'localStorage' });
       expect(persistence).toBeInstanceOf(LocalStoragePersistence);
     });
 
-    it('should create SessionStoragePersistence when requested', () => {
+    it('should create SessionStoragePersistence when requested', async () => {
       // Mock both storage types to ensure proper implementation
       global.localStorage = undefined as any;
       global.sessionStorage = mockLocalStorage as any;
-      const persistence = createPersistence({ type: 'sessionStorage' });
+      const persistence = await createPersistence({ type: 'sessionStorage' });
       expect(persistence).toBeInstanceOf(SessionStoragePersistence);
     });
 
-    it('should create IndexedDBPersistence when requested', () => {
+    it('should create IndexedDBPersistence when requested', async () => {
       // Mock indexedDB and make sure localStorage is disabled
       global.localStorage = undefined as any;
       global.window = { indexedDB: {} } as any;
-      const persistence = createPersistence({ type: 'indexedDB' });
+      const persistence = await createPersistence({ type: 'indexedDB' });
       expect(persistence).toBeInstanceOf(IndexedDBPersistence);
     });
 
-    it('should create MemoryPersistence when requested', () => {
-      const persistence = createPersistence({ type: 'memory' });
+    it('should create MemoryPersistence when requested', async () => {
+      const persistence = await createPersistence({ type: 'memory' });
       expect(persistence).toBeInstanceOf(MemoryPersistence);
     });
 
-    it('should fallback to next persistence type when preferred type is unavailable', () => {
+    it('should fallback to next persistence type when preferred type is unavailable', async () => {
       // Make IndexedDB unavailable but localStorage available
       global.window = {} as any;
       global.localStorage = mockLocalStorage as any;
 
       // Request IndexedDB with fallback to localStorage
-      const persistence = createPersistence({
+      const persistence = await createPersistence({
         type: 'indexedDB',
         fallbackOrder: ['indexedDB', 'localStorage', 'memory'],
       });
@@ -193,19 +193,19 @@ describe('Cache Persistence', () => {
       expect(persistence).toBeInstanceOf(LocalStoragePersistence);
     });
 
-    it('should fallback to memory persistence when all else fails', () => {
+    it('should fallback to memory persistence when all else fails', async () => {
       // Make all browser storage unavailable
       global.window = {} as any;
       global.localStorage = undefined as any;
       global.sessionStorage = undefined as any;
 
-      const persistence = createPersistence();
+      const persistence = await createPersistence();
       expect(persistence).toBeInstanceOf(MemoryPersistence);
     });
 
-    it('should respect custom options', () => {
+    it('should respect custom options', async () => {
       global.localStorage = mockLocalStorage as any;
-      const persistence = createPersistence({
+      const persistence = await createPersistence({
         type: 'localStorage',
         prefix: 'custom:',
         maxSize: 1000,
@@ -213,7 +213,7 @@ describe('Cache Persistence', () => {
       expect(persistence).toBeInstanceOf(LocalStoragePersistence);
     });
 
-    it('should handle auto persistence type based on environment detection', () => {
+    it('should handle auto persistence type based on environment detection', async () => {
       // Set up browser environment with all storage types available
       // Disable localStorage to ensure it chooses the correct one
       global.localStorage = undefined as any;
@@ -221,7 +221,7 @@ describe('Cache Persistence', () => {
       global.window = { indexedDB: {} } as any;
 
       // With custom fallback order, should prefer sessionStorage after IndexedDB
-      const persistence = createPersistence({
+      const persistence = await createPersistence({
         type: 'auto',
         fallbackOrder: ['indexedDB', 'sessionStorage', 'localStorage', 'memory'],
       });
